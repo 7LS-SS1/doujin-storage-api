@@ -116,7 +116,6 @@ const MenuItem: ForwardRefRenderFunction<HTMLLIElement, MenuItemProps> = (props,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname])
 
-  // Call the onActiveChange callback when the active state changes.
   useUpdateEffect(() => {
     onActiveChange?.(active)
   }, [active])
