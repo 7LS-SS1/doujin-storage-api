@@ -4,6 +4,8 @@ import { requireAdmin } from "@/lib/admin-guard";
 import { deleteR2Object } from "@/lib/r2";
 import { logAudit } from "@/lib/audit";
 
+export const dynamic = 'force-dynamic';
+
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }

@@ -4,6 +4,8 @@ import { requireAdmin } from "@/lib/admin-guard";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
+export const dynamic = 'force-dynamic';
+
 const updateSchema = z.object({
   title: z.string().min(1).max(500).optional(),
   slug: z.string().optional(),

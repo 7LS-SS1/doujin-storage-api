@@ -5,6 +5,8 @@ import { logAudit } from "@/lib/audit";
 import { deleteR2Object } from "@/lib/r2";
 import { z } from "zod";
 
+export const dynamic = 'force-dynamic';
+
 const updateSchema = z.object({
   number: z.string().optional(),
   title: z.string().optional().nullable(),

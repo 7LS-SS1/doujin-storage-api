@@ -5,6 +5,8 @@ import { generateApiKey } from "@/lib/api-key";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
+export const dynamic = 'force-dynamic';
+
 const schema = z.object({
   name: z.string().min(1).max(255),
 });

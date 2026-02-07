@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { requireApiKey } from "@/lib/public-guard";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   const { error } = await requireApiKey(request);
   if (error) return error;

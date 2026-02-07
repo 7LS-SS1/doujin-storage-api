@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-guard";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const { error } = await requireAdmin();
   if (error) return error;
