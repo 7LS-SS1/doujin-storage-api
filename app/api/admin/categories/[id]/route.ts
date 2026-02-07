@@ -3,6 +3,8 @@ import { sql } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-guard";
 import { logAudit } from "@/lib/audit";
 
+export const dynamic = 'force-dynamic';
+
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }

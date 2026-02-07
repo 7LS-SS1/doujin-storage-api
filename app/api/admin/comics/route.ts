@@ -5,6 +5,8 @@ import { logAudit } from "@/lib/audit";
 import { generateSlug } from "@/lib/slug";
 import { z } from "zod";
 
+export const dynamic = 'force-dynamic';
+
 const comicSchema = z.object({
   title: z.string().min(1).max(500),
   slug: z.string().optional(),

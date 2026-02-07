@@ -3,6 +3,8 @@ import { requireAdmin } from "@/lib/admin-guard";
 import { generatePresignedUrl, validateFile } from "@/lib/r2";
 import { z } from "zod";
 
+export const dynamic = 'force-dynamic';
+
 const itemSchema = z.object({
   fileName: z.string(),
   contentType: z.string(),

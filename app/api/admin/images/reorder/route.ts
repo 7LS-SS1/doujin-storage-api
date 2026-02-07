@@ -3,6 +3,8 @@ import { sql } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-guard";
 import { z } from "zod";
 
+export const dynamic = 'force-dynamic';
+
 const schema = z.object({
   items: z.array(
     z.object({
