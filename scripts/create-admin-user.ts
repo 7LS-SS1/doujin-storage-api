@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import { neon } from "@neondatabase/serverless";
 
 async function main() {
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = neon(process.env.DATABASE_URL);
   const email = "7ls@doujin.com";
   const password = "112233";
   const hash = await bcrypt.hash(password, 12);
