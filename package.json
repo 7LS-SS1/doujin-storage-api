@@ -65,13 +65,9 @@
     "nanoid": "^5.0.9",
     "swr": "^2.3.0"
   },
-  "pnpm": {
-    "peerDependencyRules": {
-      "allowAny": [
-        "react",
-        "react-dom"
-      ]
-    }
+  "overrides": {
+    "react": "$react",
+    "react-dom": "$react-dom"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.20",
