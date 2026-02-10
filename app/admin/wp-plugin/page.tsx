@@ -22,15 +22,15 @@ export default function WPPluginPage() {
             </div>
             <div>
               <CardTitle className="text-foreground">Comic Storage API Plugin</CardTitle>
-              <CardDescription className="text-muted-foreground">v1.0.0</CardDescription>
+              <CardDescription className="text-muted-foreground">v1.2.0</CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">
-            This plugin connects your WordPress site to the Comic Storage API. 
-            It provides shortcodes for displaying comics, chapters, and a vertical image reader. 
-            It also supports syncing categories and tags.
+            This plugin connects your WordPress site to the Comic Storage API.
+            It provides shortcodes and Elementor widgets for comics, chapters, readers, categories, tags, authors, series, and search.
+            It also supports syncing categories and tags with Unicode slug and UUID support.
           </p>
 
           <div className="rounded-lg border border-border bg-secondary p-4">

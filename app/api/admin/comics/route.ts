@@ -3,22 +3,32 @@ import { sql } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-guard";
 import { logAudit } from "@/lib/audit";
 import { generateSlug } from "@/lib/slug";
+import { getComicsAltTitlesType } from "@/lib/db-schema";
 import { z } from "zod";
 
 export const dynamic = 'force-dynamic';
+
+const idSchema = z.union([z.string().min(1), z.number()]).transform(String);
+
+const nullableIdSchema = z.preprocess((value) => {
+  if (value === null || value === undefined || value === "" || value === "none") {
+    return null;
+  }
+  return value;
+}, z.union([z.string().min(1), z.number()]).transform(String).nullable());
 
 const comicSchema = z.object({
   title: z.string().min(1).max(500),
   slug: z.string().optional(),
   altTitles: z.array(z.string()).default([]),
-  description: z.string().optional(),
-  authorName: z.string().optional(),
+  description: z.string().optional().nullable(),
+  authorName: z.string().optional().nullable(),
   status: z.enum(["ongoing", "completed", "hiatus"]).default("ongoing"),
-  coverImageUrl: z.string().optional(),
-  coverObjectKey: z.string().optional(),
-  seriesId: z.number().nullable().optional(),
-  categoryIds: z.array(z.number()).default([]),
-  tagIds: z.array(z.number()).default([]),
+  coverImageUrl: z.string().optional().nullable(),
+  coverObjectKey: z.string().optional().nullable(),
+  seriesId: nullableIdSchema.optional(),
+  categoryIds: z.array(idSchema).default([]),
+  tagIds: z.array(idSchema).default([]),
 });
 
 export async function GET(request: Request) {
@@ -108,11 +118,16 @@ export async function POST(request: Request) {
 
     const data = parsed.data;
     const slug = data.slug || generateSlug(data.title);
+    const altTitlesType = await getComicsAltTitlesType();
+    const altTitlesValue =
+      altTitlesType === "text_array"
+        ? data.altTitles
+        : JSON.stringify(data.altTitles);
 
     const result = await sql`
       INSERT INTO comics (slug, title, alt_titles, description, author_name, status, cover_image_url, cover_object_key, series_id)
       VALUES (
-        ${slug}, ${data.title}, ${JSON.stringify(data.altTitles)},
+        ${slug}, ${data.title}, ${altTitlesValue},
         ${data.description ?? null}, ${data.authorName ?? null}, ${data.status},
         ${data.coverImageUrl ?? null}, ${data.coverObjectKey ?? null},
         ${data.seriesId ?? null}
@@ -146,6 +161,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "A comic with this slug already exists" }, { status: 409 });
     }
     console.error("Create comic error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    const isDev = process.env.NODE_ENV !== "production";
+    return NextResponse.json(
+      { error: "Internal server error", details: isDev ? message : undefined },
+      { status: 500 }
+    );
   }
 }

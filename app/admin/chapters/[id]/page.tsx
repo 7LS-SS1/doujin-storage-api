@@ -17,13 +17,14 @@ import {
   ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 interface ChapterImage {
-  id: number;
+  id: string | number;
   image_url: string;
-  object_key: string;
+  object_key?: string | null;
   sort_order: number;
 }
 
@@ -41,6 +42,7 @@ export default function ChapterDetailPage({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | number | null>(null);
 
   const handleUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -60,7 +62,7 @@ export default function ChapterDetailPage({
           size: file.size,
           targetType: "chapterPage" as const,
           comicSlug: chapter.comic_slug,
-          chapterId: parseInt(id),
+          chapterId: id,
           sortOrder: existingCount + i,
         }));
 
@@ -95,7 +97,7 @@ export default function ChapterDetailPage({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            chapterId: parseInt(id),
+            chapterId: id,
             items: presigned.map(
               (p: { objectKey: string; publicUrl: string }, i: number) => ({
                 objectKey: p.objectKey,
@@ -126,8 +128,7 @@ export default function ChapterDetailPage({
   );
 
   const deleteImage = useCallback(
-    async (imageId: number) => {
-      if (!confirm("ลบรูปภาพนี้หรือไม่?")) return;
+    async (imageId: string | number) => {
       const res = await fetch(`/api/admin/images/${imageId}`, {
         method: "DELETE",
       });
@@ -299,7 +300,7 @@ export default function ChapterDetailPage({
                   className="h-6 w-6"
                   onClick={(e) => {
                     e.stopPropagation();
-                    deleteImage(img.id);
+                    setDeleteTarget(img.id);
                   }}
                 >
                   <Trash2 className="h-3 w-3" />
@@ -321,6 +322,22 @@ export default function ChapterDetailPage({
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="ลบรูปภาพนี้หรือไม่?"
+        description="รูปภาพนี้จะถูกลบถาวร"
+        confirmText="ลบรูปภาพ"
+        onConfirm={() => {
+          if (deleteTarget === null) return;
+          const targetId = deleteTarget;
+          setDeleteTarget(null);
+          deleteImage(targetId);
+        }}
+      />
     </div>
   );
 }

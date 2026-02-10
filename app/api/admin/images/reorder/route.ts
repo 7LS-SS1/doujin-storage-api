@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 const schema = z.object({
   items: z.array(
     z.object({
-      id: z.number(),
+      id: z.union([z.string().min(1), z.number()]).transform(String),
       sortOrder: z.number(),
     })
   ),

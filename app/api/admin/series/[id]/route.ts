@@ -19,7 +19,7 @@ export async function GET(
   const { error } = await requireAdmin();
   if (error) return error;
   const { id } = await params;
-  const rows = await sql`SELECT * FROM series WHERE id = ${parseInt(id)}`;
+  const rows = await sql`SELECT * FROM series WHERE id = ${id}`;
   if (rows.length === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(rows[0]);
 }
@@ -31,7 +31,7 @@ export async function PUT(
   const { error, session } = await requireAdmin();
   if (error) return error;
   const { id } = await params;
-  const seriesId = parseInt(id);
+  const seriesId = id;
 
   const body = await request.json();
   const parsed = updateSchema.safeParse(body);
@@ -59,7 +59,7 @@ export async function DELETE(
   const { error, session } = await requireAdmin();
   if (error) return error;
   const { id } = await params;
-  const seriesId = parseInt(id);
+  const seriesId = id;
   await sql`DELETE FROM series WHERE id = ${seriesId}`;
   await logAudit({ userEmail: session!.email, action: "delete_series", entityType: "series", entityId: seriesId });
   return NextResponse.json({ success: true });

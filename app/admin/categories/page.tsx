@@ -23,12 +23,10 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import { generateSlug } from "@/lib/slug";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
-
-function slugify(text: string) {
-  return text.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_]+/g, "-").replace(/^-+|-+$/g, "");
-}
 
 export default function CategoriesPage() {
   const { data, mutate, isLoading } = useSWR("/api/admin/categories", fetcher);
@@ -36,6 +34,10 @@ export default function CategoriesPage() {
   const [editing, setEditing] = useState<Record<string, unknown> | null>(null);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string | number;
+    name: string;
+  } | null>(null);
 
   function openCreate() {
     setEditing(null);
@@ -53,7 +55,7 @@ export default function CategoriesPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const finalSlug = slug || slugify(name);
+    const finalSlug = slug || generateSlug(name);
     const url = editing ? `/api/admin/categories/${editing.id}` : "/api/admin/categories";
     const method = editing ? "PUT" : "POST";
 
@@ -73,8 +75,7 @@ export default function CategoriesPage() {
     }
   }
 
-  async function handleDelete(id: number) {
-    if (!confirm("Delete this category?")) return;
+  async function handleDelete(id: string | number) {
     const res = await fetch(`/api/admin/categories/${id}`, { method: "DELETE" });
     if (res.ok) {
       toast.success("Category deleted");
@@ -113,7 +114,7 @@ export default function CategoriesPage() {
               <TableRow><TableCell colSpan={3} className="py-8 text-center text-muted-foreground">ไม่มีหมวดหมู่</TableCell></TableRow>
             ) : (
               categories.map((c: Record<string, unknown>) => (
-                <TableRow key={c.id as number} className="border-border">
+                <TableRow key={String(c.id)} className="border-border">
                   <TableCell className="font-medium text-foreground">{c.name as string}</TableCell>
                   <TableCell className="text-muted-foreground">{c.slug as string}</TableCell>
                   <TableCell className="text-right">
@@ -121,7 +122,17 @@ export default function CategoriesPage() {
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(c.id as number)}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() =>
+                          setDeleteTarget({
+                            id: c.id as string,
+                            name: c.name as string,
+                          })
+                        }
+                      >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -141,7 +152,7 @@ export default function CategoriesPage() {
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <Label className="text-foreground">Name</Label>
-              <Input value={name} onChange={(e) => { setName(e.target.value); if (!editing) setSlug(slugify(e.target.value)); }} required className="border-input bg-secondary text-foreground" />
+              <Input value={name} onChange={(e) => { setName(e.target.value); if (!editing) setSlug(generateSlug(e.target.value)); }} required className="border-input bg-secondary text-foreground" />
             </div>
             <div className="flex flex-col gap-2">
               <Label className="text-foreground">Slug</Label>
@@ -151,6 +162,24 @@ export default function CategoriesPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="ลบหมวดหมู่นี้หรือไม่?"
+        description={
+          deleteTarget ? `ลบ "${deleteTarget.name}" หรือไม่?` : undefined
+        }
+        confirmText="ลบหมวดหมู่"
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          const { id } = deleteTarget;
+          setDeleteTarget(null);
+          handleDelete(id);
+        }}
+      />
     </div>
   );
 }

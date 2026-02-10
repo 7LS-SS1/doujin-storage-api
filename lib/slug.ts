@@ -2,8 +2,9 @@ export function generateSlug(title: string): string {
   return title
     .toLowerCase()
     .trim()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/[\s_]+/g, "-")
+    .normalize("NFKD")
+    .replace(/[^\p{L}\p{N}\p{M}\s-]/gu, "")
+    .replace(/[\s_-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .substring(0, 200);
 }

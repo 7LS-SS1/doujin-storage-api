@@ -15,12 +15,10 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import { generateSlug } from "@/lib/slug";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
-
-function slugify(text: string) {
-  return text.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_]+/g, "-").replace(/^-+|-+$/g, "");
-}
 
 export default function TagsPage() {
   const { data, mutate, isLoading } = useSWR("/api/admin/tags", fetcher);
@@ -28,13 +26,17 @@ export default function TagsPage() {
   const [editing, setEditing] = useState<Record<string, unknown> | null>(null);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string | number;
+    name: string;
+  } | null>(null);
 
   function openCreate() { setEditing(null); setName(""); setSlug(""); setDialogOpen(true); }
   function openEdit(t: Record<string, unknown>) { setEditing(t); setName(t.name as string); setSlug(t.slug as string); setDialogOpen(true); }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const finalSlug = slug || slugify(name);
+    const finalSlug = slug || generateSlug(name);
     const url = editing ? `/api/admin/tags/${editing.id}` : "/api/admin/tags";
     const method = editing ? "PUT" : "POST";
     const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, slug: finalSlug }) });
@@ -42,8 +44,7 @@ export default function TagsPage() {
     else { const data = await res.json(); toast.error(data.error || "Failed to save"); }
   }
 
-  async function handleDelete(id: number) {
-    if (!confirm("Delete this tag?")) return;
+  async function handleDelete(id: string | number) {
     const res = await fetch(`/api/admin/tags/${id}`, { method: "DELETE" });
     if (res.ok) { toast.success("Tag deleted"); mutate(); }
   }
@@ -76,13 +77,25 @@ export default function TagsPage() {
               <TableRow><TableCell colSpan={3} className="py-8 text-center text-muted-foreground">No tags</TableCell></TableRow>
             ) : (
               tags.map((t: Record<string, unknown>) => (
-                <TableRow key={t.id as number} className="border-border">
+                <TableRow key={String(t.id)} className="border-border">
                   <TableCell className="font-medium text-foreground">{t.name as string}</TableCell>
                   <TableCell className="text-muted-foreground">{t.slug as string}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(t)}><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(t.id as number)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() =>
+                          setDeleteTarget({
+                            id: t.id as string,
+                            name: t.name as string,
+                          })
+                        }
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -98,7 +111,7 @@ export default function TagsPage() {
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <Label className="text-foreground">Name</Label>
-              <Input value={name} onChange={(e) => { setName(e.target.value); if (!editing) setSlug(slugify(e.target.value)); }} required className="border-input bg-secondary text-foreground" />
+              <Input value={name} onChange={(e) => { setName(e.target.value); if (!editing) setSlug(generateSlug(e.target.value)); }} required className="border-input bg-secondary text-foreground" />
             </div>
             <div className="flex flex-col gap-2">
               <Label className="text-foreground">Slug</Label>
@@ -108,6 +121,24 @@ export default function TagsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="ลบแท็กนี้หรือไม่?"
+        description={
+          deleteTarget ? `ลบ "${deleteTarget.name}" หรือไม่?` : undefined
+        }
+        confirmText="ลบแท็ก"
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          const { id } = deleteTarget;
+          setDeleteTarget(null);
+          handleDelete(id);
+        }}
+      />
     </div>
   );
 }

@@ -33,6 +33,7 @@ import {
 import { Plus, Search, Trash2, Pencil, ChevronLeft, ChevronRight, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { ComicForm } from "@/components/admin/comic-form";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -40,6 +41,10 @@ export default function ComicsPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string | number;
+    title: string;
+  } | null>(null);
 
   const { data, mutate, isLoading } = useSWR(
     `/api/admin/comics?search=${encodeURIComponent(search)}&page=${page}&pageSize=20`,
@@ -47,8 +52,7 @@ export default function ComicsPage() {
   );
 
   const handleDelete = useCallback(
-    async (id: number, title: string) => {
-      if (!confirm(`ลบ "${title}" และตอน/รูปภาพทั้งหมดหรือไม่?`)) return;
+    async (id: string | number, title: string) => {
       const res = await fetch(`/api/admin/comics/${id}`, { method: "DELETE" });
       if (res.ok) {
         toast.success(`ลบ "${title}" แล้ว`);
@@ -134,7 +138,7 @@ export default function ComicsPage() {
               </TableRow>
             ) : (
               comics.map((comic: Record<string, unknown>) => (
-                <TableRow key={comic.id as number} className="border-border">
+                <TableRow key={String(comic.id)} className="border-border">
                   <TableCell>
                     {comic.cover_image_url ? (
                       <img
@@ -189,7 +193,12 @@ export default function ComicsPage() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => handleDelete(comic.id as number, comic.title as string)}
+                        onClick={() =>
+                          setDeleteTarget({
+                            id: comic.id as string,
+                            title: comic.title as string,
+                          })
+                        }
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -227,6 +236,26 @@ export default function ComicsPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="ลบคอมมิคนี้หรือไม่?"
+        description={
+          deleteTarget
+            ? `ลบ "${deleteTarget.title}" และตอน/รูปภาพทั้งหมดหรือไม่?`
+            : undefined
+        }
+        confirmText="ลบคอมมิค"
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          const { id, title } = deleteTarget;
+          setDeleteTarget(null);
+          handleDelete(id, title);
+        }}
+      />
     </div>
   );
 }

@@ -3,12 +3,13 @@ import { sql } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-guard";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
+import { tableHasColumn } from "@/lib/db-schema";
 
 export const dynamic = 'force-dynamic';
 
 const schema = z.object({
-  chapterId: z.number().optional(),
-  comicId: z.number().optional(),
+  chapterId: z.union([z.string().min(1), z.number()]).optional(),
+  comicId: z.union([z.string().min(1), z.number()]).optional(),
   items: z.array(
     z.object({
       objectKey: z.string(),
@@ -34,11 +35,19 @@ export async function POST(request: Request) {
 
   if (chapterId) {
     // Chapter images
+    const hasObjectKey = await tableHasColumn("chapter_images", "object_key");
     for (const item of items) {
-      await sql`
-        INSERT INTO chapter_images (chapter_id, image_url, object_key, sort_order, width, height)
-        VALUES (${chapterId}, ${item.publicUrl}, ${item.objectKey}, ${item.sortOrder}, ${item.width ?? null}, ${item.height ?? null})
-      `;
+      if (hasObjectKey) {
+        await sql`
+          INSERT INTO chapter_images (chapter_id, image_url, object_key, sort_order, width, height)
+          VALUES (${chapterId}, ${item.publicUrl}, ${item.objectKey}, ${item.sortOrder}, ${item.width ?? null}, ${item.height ?? null})
+        `;
+      } else {
+        await sql`
+          INSERT INTO chapter_images (chapter_id, image_url, sort_order, width, height)
+          VALUES (${chapterId}, ${item.publicUrl}, ${item.sortOrder}, ${item.width ?? null}, ${item.height ?? null})
+        `;
+      }
     }
     await logAudit({
       userEmail: session!.email,

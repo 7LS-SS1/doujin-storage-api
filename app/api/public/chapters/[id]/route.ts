@@ -12,7 +12,7 @@ export async function GET(
   if (error) return error;
 
   const { id } = await params;
-  const chapterId = parseInt(id);
+  const chapterId = id;
 
   const rows = await sql`
     SELECT ch.*, c.slug as comic_slug, c.title as comic_title

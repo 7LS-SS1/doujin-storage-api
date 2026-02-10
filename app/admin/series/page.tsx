@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, Trash2, Pencil, Search } from "lucide-react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -39,6 +40,10 @@ export default function SeriesPage() {
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string | number;
+    title: string;
+  } | null>(null);
 
   function openCreate() {
     setEditing(null);
@@ -79,8 +84,7 @@ export default function SeriesPage() {
     }
   }
 
-  async function handleDelete(id: number) {
-    if (!confirm("ลบซีรีส์นี้หรือไม่?")) return;
+  async function handleDelete(id: string | number) {
     const res = await fetch(`/api/admin/series/${id}`, { method: "DELETE" });
     if (res.ok) {
       toast.success("ลบซีรีส์แล้ว");
@@ -134,7 +138,7 @@ export default function SeriesPage() {
               </TableRow>
             ) : (
               series.map((s: Record<string, unknown>) => (
-                <TableRow key={s.id as number} className="border-border">
+                <TableRow key={String(s.id)} className="border-border">
                   <TableCell className="font-medium text-foreground">{s.title as string}</TableCell>
                   <TableCell className="text-muted-foreground">{s.slug as string}</TableCell>
                   <TableCell className="text-muted-foreground">{s.comic_count as number}</TableCell>
@@ -147,7 +151,12 @@ export default function SeriesPage() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => handleDelete(s.id as number)}
+                        onClick={() =>
+                          setDeleteTarget({
+                            id: s.id as string,
+                            title: s.title as string,
+                          })
+                        }
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -184,6 +193,24 @@ export default function SeriesPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="ลบซีรีส์นี้หรือไม่?"
+        description={
+          deleteTarget ? `ลบ "${deleteTarget.title}" หรือไม่?` : undefined
+        }
+        confirmText="ลบซีรีส์"
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          const { id } = deleteTarget;
+          setDeleteTarget(null);
+          handleDelete(id);
+        }}
+      />
     </div>
   );
 }

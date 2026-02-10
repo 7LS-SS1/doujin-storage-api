@@ -11,7 +11,7 @@ const itemSchema = z.object({
   size: z.number(),
   targetType: z.enum(["cover", "chapterPage"]),
   comicSlug: z.string(),
-  chapterId: z.number().optional(),
+  chapterId: z.union([z.string().min(1), z.number()]).optional(),
   sortOrder: z.number().optional(),
 });
 

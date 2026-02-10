@@ -56,7 +56,7 @@ export async function generatePresignedUrl(params: {
   contentType: string;
   targetType: "cover" | "chapterPage";
   comicSlug: string;
-  chapterId?: number;
+  chapterId?: string | number;
   sortOrder?: number;
 }) {
   const ext = getExtension(params.contentType);

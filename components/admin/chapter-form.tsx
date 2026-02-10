@@ -10,7 +10,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface ChapterFormProps {
-  comicId: number;
+  comicId: string | number;
   chapter?: Record<string, unknown>;
   onSuccess: () => void;
 }
@@ -44,8 +44,17 @@ export function ChapterForm({ comicId, chapter, onSuccess }: ChapterFormProps) {
         toast.success(chapter ? "อัปเดตตอนแล้ว" : "สร้างตอนแล้ว");
         onSuccess();
       } else {
-        const data = await res.json();
-        toast.error(data.error || "บันทึกไม่สำเร็จ");
+        const data = await res.json().catch(() => ({}));
+        const fieldErrors = data?.details?.fieldErrors;
+        const detailText = fieldErrors
+          ? Object.values(fieldErrors)
+              .flat()
+              .filter(Boolean)
+              .join(", ")
+          : "";
+        const extraDetail =
+          typeof data?.details === "string" ? data.details : "";
+        toast.error(detailText || extraDetail || data.error || "บันทึกไม่สำเร็จ");
       }
     } catch {
       toast.error("เกิดข้อผิดพลาดในการบันทึกตอน");

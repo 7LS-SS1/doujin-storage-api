@@ -25,10 +25,41 @@ function slugify(text: string) {
   return text
     .toLowerCase()
     .trim()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/[\s_]+/g, "-")
+    .normalize("NFKD")
+    .replace(/[^\p{L}\p{N}\p{M}\s-]/gu, "")
+    .replace(/[\s_-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .substring(0, 200);
+}
+
+function compactFilename(name: string, maxLength = 32) {
+  if (name.length <= maxLength) return name;
+  const lastDot = name.lastIndexOf(".");
+  if (lastDot > 0 && lastDot < name.length - 1) {
+    const ext = name.slice(lastDot);
+    const base = name.slice(0, lastDot);
+    const keep = Math.max(6, maxLength - ext.length - 1);
+    if (keep >= base.length) return name;
+    return `${base.slice(0, keep)}…${ext}`;
+  }
+  return `${name.slice(0, Math.max(1, maxLength - 1))}…`;
+}
+
+function normalizeId(value: unknown): string | null {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+  return null;
+}
+
+function normalizeIdArray(values: unknown[]): string[] {
+  return values
+    .map(normalizeId)
+    .filter((value): value is string => value !== null);
 }
 
 interface ComicFormProps {
@@ -51,11 +82,15 @@ export function ComicForm({ comic, onSuccess }: ComicFormProps) {
   const [seriesId, setSeriesId] = useState<string>(
     comic?.series_id ? String(comic.series_id) : "none"
   );
-  const [selectedCategories, setSelectedCategories] = useState<number[]>(
-    ((comic?.categories as { id: number }[]) || []).map((c) => c.id)
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(
+    normalizeIdArray(
+      ((comic?.categories as { id?: unknown }[]) || []).map((c) => c.id)
+    )
   );
-  const [selectedTags, setSelectedTags] = useState<number[]>(
-    ((comic?.tags as { id: number }[]) || []).map((t) => t.id)
+  const [selectedTags, setSelectedTags] = useState<string[]>(
+    normalizeIdArray(
+      ((comic?.tags as { id?: unknown }[]) || []).map((t) => t.id)
+    )
   );
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string>(
@@ -63,6 +98,9 @@ export function ComicForm({ comic, onSuccess }: ComicFormProps) {
   );
   const [saving, setSaving] = useState(false);
   const [autoSlug, setAutoSlug] = useState(!comic);
+  const displayCoverName = coverFile
+    ? compactFilename(coverFile.name)
+    : "เลือกไฟล์";
 
   const { data: seriesData } = useSWR("/api/admin/series", fetcher);
   const { data: categoriesData } = useSWR("/api/admin/categories", fetcher);
@@ -137,15 +175,20 @@ export function ComicForm({ comic, onSuccess }: ComicFormProps) {
         }
       }
 
+      const safeSeriesId =
+        seriesId !== "none" && seriesId !== "" ? seriesId : null;
+      const normalizedCategoryIds = normalizeIdArray(selectedCategories);
+      const normalizedTagIds = normalizeIdArray(selectedTags);
+
       const payload = {
         title,
         slug,
         description: description || null,
         authorName: authorName || null,
         status,
-        seriesId: seriesId !== "none" ? parseInt(seriesId) : null,
-        categoryIds: selectedCategories,
-        tagIds: selectedTags,
+        seriesId: safeSeriesId,
+        categoryIds: normalizedCategoryIds,
+        tagIds: normalizedTagIds,
         coverImageUrl: coverImageUrl || null,
         coverObjectKey: coverObjectKey || null,
       };
@@ -165,11 +208,22 @@ export function ComicForm({ comic, onSuccess }: ComicFormProps) {
         toast.success(comic ? "อัปเดตคอมมิคแล้ว" : "สร้างคอมมิคแล้ว");
         onSuccess();
       } else {
-        const data = await res.json();
-        toast.error(data.error || "บันทึกไม่สำเร็จ");
+        const data = await res.json().catch(() => ({}));
+        const fieldErrors = data?.details?.fieldErrors;
+        const detailText = fieldErrors
+          ? Object.values(fieldErrors)
+              .flat()
+              .filter(Boolean)
+              .join(", ")
+          : "";
+        const extraDetail =
+          typeof data?.details === "string" ? data.details : "";
+        toast.error(detailText || extraDetail || data.error || "บันทึกไม่สำเร็จ");
       }
     } catch (err) {
-      toast.error("เกิดข้อผิดพลาดในการบันทึกคอมมิค");
+      const message =
+        err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการบันทึกคอมมิค";
+      toast.error(message);
       console.error(err);
     } finally {
       setSaving(false);
@@ -180,14 +234,22 @@ export function ComicForm({ comic, onSuccess }: ComicFormProps) {
   const allTags = tagsData?.tags || [];
   const allSeries = seriesData?.series || [];
 
-  function toggleCategory(id: number) {
+  function toggleCategory(id: string | number) {
+    const normalizedId = normalizeId(id);
+    if (!normalizedId) return;
     setSelectedCategories((prev) =>
-      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
+      prev.includes(normalizedId)
+        ? prev.filter((c) => c !== normalizedId)
+        : [...prev, normalizedId]
     );
   }
-  function toggleTag(id: number) {
+  function toggleTag(id: string | number) {
+    const normalizedId = normalizeId(id);
+    if (!normalizedId) return;
     setSelectedTags((prev) =>
-      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
+      prev.includes(normalizedId)
+        ? prev.filter((t) => t !== normalizedId)
+        : [...prev, normalizedId]
     );
   }
 
@@ -293,9 +355,12 @@ export function ComicForm({ comic, onSuccess }: ComicFormProps) {
               crossOrigin="anonymous"
             />
           )}
-          <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-4 py-3 text-sm text-muted-foreground hover:border-primary hover:text-primary">
-            <Upload className="h-4 w-4" />
-            {coverFile ? coverFile.name : "เลือกไฟล์"}
+          <label
+            className="flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-4 py-3 text-sm text-muted-foreground hover:border-primary hover:text-primary"
+            title={coverFile?.name}
+          >
+            <Upload className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 flex-1 truncate">{displayCoverName}</span>
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp,image/gif"
@@ -309,19 +374,22 @@ export function ComicForm({ comic, onSuccess }: ComicFormProps) {
       <div className="flex flex-col gap-2">
         <Label className="text-foreground">หมวดหมู่</Label>
         <div className="flex flex-wrap gap-2">
-          {allCategories.map((cat: { id: number; name: string }) => (
-            <Badge
-              key={cat.id}
-              variant={selectedCategories.includes(cat.id) ? "default" : "outline"}
-              className="cursor-pointer"
-              onClick={() => toggleCategory(cat.id)}
-            >
-              {cat.name}
-              {selectedCategories.includes(cat.id) && (
-                <X className="ml-1 h-3 w-3" />
-              )}
-            </Badge>
-          ))}
+          {allCategories.map((cat: { id: unknown; name: string }) => {
+            const catId = normalizeId(cat.id);
+            if (!catId) return null;
+            const isSelected = selectedCategories.includes(catId);
+            return (
+              <Badge
+                key={catId}
+                variant={isSelected ? "default" : "outline"}
+                className="cursor-pointer"
+                onClick={() => toggleCategory(catId)}
+              >
+                {cat.name}
+                {isSelected && <X className="ml-1 h-3 w-3" />}
+              </Badge>
+            );
+          })}
           {allCategories.length === 0 && (
             <p className="text-xs text-muted-foreground">
               ยังไม่มีหมวดหมู่ กรุณาสร้างก่อน
@@ -333,19 +401,22 @@ export function ComicForm({ comic, onSuccess }: ComicFormProps) {
       <div className="flex flex-col gap-2">
         <Label className="text-foreground">แท็ก</Label>
         <div className="flex flex-wrap gap-2">
-          {allTags.map((tag: { id: number; name: string }) => (
-            <Badge
-              key={tag.id}
-              variant={selectedTags.includes(tag.id) ? "default" : "outline"}
-              className="cursor-pointer"
-              onClick={() => toggleTag(tag.id)}
-            >
-              {tag.name}
-              {selectedTags.includes(tag.id) && (
-                <X className="ml-1 h-3 w-3" />
-              )}
-            </Badge>
-          ))}
+          {allTags.map((tag: { id: unknown; name: string }) => {
+            const tagId = normalizeId(tag.id);
+            if (!tagId) return null;
+            const isSelected = selectedTags.includes(tagId);
+            return (
+              <Badge
+                key={tagId}
+                variant={isSelected ? "default" : "outline"}
+                className="cursor-pointer"
+                onClick={() => toggleTag(tagId)}
+              >
+                {tag.name}
+                {isSelected && <X className="ml-1 h-3 w-3" />}
+              </Badge>
+            );
+          })}
           {allTags.length === 0 && (
             <p className="text-xs text-muted-foreground">
               ยังไม่มีแท็ก กรุณาสร้างก่อน

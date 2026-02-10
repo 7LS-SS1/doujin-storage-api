@@ -3,9 +3,19 @@ import { sql } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-guard";
 import { logAudit } from "@/lib/audit";
 import { deleteR2Object } from "@/lib/r2";
+import { getComicsAltTitlesType, tableHasColumn } from "@/lib/db-schema";
 import { z } from "zod";
 
 export const dynamic = 'force-dynamic';
+
+const idSchema = z.union([z.string().min(1), z.number()]).transform(String);
+
+const nullableIdSchema = z.preprocess((value) => {
+  if (value === null || value === undefined || value === "" || value === "none") {
+    return null;
+  }
+  return value;
+}, z.union([z.string().min(1), z.number()]).transform(String).nullable());
 
 const updateSchema = z.object({
   title: z.string().min(1).max(500).optional(),
@@ -16,9 +26,9 @@ const updateSchema = z.object({
   status: z.enum(["ongoing", "completed", "hiatus"]).optional(),
   coverImageUrl: z.string().optional().nullable(),
   coverObjectKey: z.string().optional().nullable(),
-  seriesId: z.number().nullable().optional(),
-  categoryIds: z.array(z.number()).optional(),
-  tagIds: z.array(z.number()).optional(),
+  seriesId: nullableIdSchema.optional(),
+  categoryIds: z.array(idSchema).optional(),
+  tagIds: z.array(idSchema).optional(),
 });
 
 export async function GET(
@@ -33,7 +43,7 @@ export async function GET(
     SELECT c.*, s.title as series_title, s.slug as series_slug
     FROM comics c
     LEFT JOIN series s ON c.series_id = s.id
-    WHERE c.id = ${parseInt(id)}
+    WHERE c.id = ${id}
   `;
 
   if (rows.length === 0) {
@@ -51,12 +61,29 @@ export async function GET(
     JOIN tags t ON ct.tag_id = t.id WHERE ct.comic_id = ${comic.id}
   `;
 
-  const chapters = await sql`
-    SELECT id, number, title, published_at, created_at FROM chapters
-    WHERE comic_id = ${comic.id} ORDER BY created_at DESC
-  `;
+  const hasPublishedAt = await tableHasColumn("chapters", "published_at");
+  const chapters = hasPublishedAt
+    ? await sql`
+        SELECT id, number, title, published_at, created_at FROM chapters
+        WHERE comic_id = ${comic.id} ORDER BY created_at DESC
+      `
+    : await sql`
+        SELECT id, number, title, created_at FROM chapters
+        WHERE comic_id = ${comic.id} ORDER BY created_at DESC
+      `;
+  const chaptersWithPublishedAt = hasPublishedAt
+    ? chapters
+    : chapters.map((ch: { created_at: string }) => ({
+        ...ch,
+        published_at: ch.created_at,
+      }));
 
-  return NextResponse.json({ ...comic, categories, tags, chapters });
+  return NextResponse.json({
+    ...comic,
+    categories,
+    tags,
+    chapters: chaptersWithPublishedAt,
+  });
 }
 
 export async function PUT(
@@ -67,7 +94,7 @@ export async function PUT(
   if (error) return error;
 
   const { id } = await params;
-  const comicId = parseInt(id);
+  const comicId = id;
 
   try {
     const body = await request.json();
@@ -77,6 +104,13 @@ export async function PUT(
     }
 
     const data = parsed.data;
+    const altTitlesType = await getComicsAltTitlesType();
+    const altTitlesValue =
+      data.altTitles !== undefined
+        ? altTitlesType === "text_array"
+          ? data.altTitles
+          : JSON.stringify(data.altTitles)
+        : null;
 
     // Build dynamic update
     const existing = await sql`SELECT * FROM comics WHERE id = ${comicId}`;
@@ -93,7 +127,7 @@ export async function PUT(
       UPDATE comics SET
         title = COALESCE(${data.title ?? null}, title),
         slug = COALESCE(${data.slug ?? null}, slug),
-        alt_titles = COALESCE(${data.altTitles ? JSON.stringify(data.altTitles) : null}, alt_titles),
+        alt_titles = COALESCE(${altTitlesValue}, alt_titles),
         description = ${data.description !== undefined ? data.description : existing[0].description},
         author_name = ${data.authorName !== undefined ? data.authorName : existing[0].author_name},
         status = COALESCE(${data.status ?? null}, status),
@@ -124,8 +158,8 @@ export async function PUT(
       userEmail: session!.email,
       action: "update_comic",
       entityType: "comic",
-      entityId: comicId,
-    });
+    entityId: comicId,
+  });
 
     return NextResponse.json(result[0]);
   } catch (err: unknown) {
@@ -146,7 +180,7 @@ export async function DELETE(
   if (error) return error;
 
   const { id } = await params;
-  const comicId = parseInt(id);
+  const comicId = id;
 
   const existing = await sql`SELECT * FROM comics WHERE id = ${comicId}`;
   if (existing.length === 0) {
@@ -159,13 +193,17 @@ export async function DELETE(
   }
 
   // Delete all chapter images from R2
-  const images = await sql`
-    SELECT ci.object_key FROM chapter_images ci
-    JOIN chapters ch ON ci.chapter_id = ch.id
-    WHERE ch.comic_id = ${comicId}
-  `;
-  for (const img of images) {
-    try { await deleteR2Object(img.object_key); } catch {}
+  const chapterImagesHaveObjectKey = await tableHasColumn("chapter_images", "object_key");
+  if (chapterImagesHaveObjectKey) {
+    const images = await sql`
+      SELECT ci.object_key FROM chapter_images ci
+      JOIN chapters ch ON ci.chapter_id = ch.id
+      WHERE ch.comic_id = ${comicId}
+    `;
+    for (const img of images) {
+      if (!img.object_key) continue;
+      try { await deleteR2Object(img.object_key); } catch {}
+    }
   }
 
   await sql`DELETE FROM comics WHERE id = ${comicId}`;

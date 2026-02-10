@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { ComicForm } from "@/components/admin/comic-form";
 import { ChapterForm } from "@/components/admin/chapter-form";
 import { useState } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -33,6 +34,10 @@ export default function ComicDetailPage({
   );
   const [editOpen, setEditOpen] = useState(false);
   const [chapterOpen, setChapterOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string | number;
+    label: string;
+  } | null>(null);
 
   if (isLoading) {
     return (
@@ -50,8 +55,7 @@ export default function ComicDetailPage({
     );
   }
 
-  async function deleteChapter(chapterId: number) {
-    if (!confirm("ลบตอนนี้และรูปภาพทั้งหมดหรือไม่?")) return;
+  async function deleteChapter(chapterId: string | number) {
     const res = await fetch(`/api/admin/chapters/${chapterId}`, {
       method: "DELETE",
     });
@@ -130,14 +134,14 @@ export default function ComicDetailPage({
               )}
               <div className="flex flex-wrap gap-1">
                 {(comic.categories || []).map(
-                  (c: { id: number; name: string }) => (
+                  (c: { id: string | number; name: string }) => (
                     <Badge key={c.id} variant="secondary" className="text-xs">
                       {c.name}
                     </Badge>
                   )
                 )}
                 {(comic.tags || []).map(
-                  (t: { id: number; name: string }) => (
+                  (t: { id: string | number; name: string }) => (
                     <Badge key={t.id} variant="outline" className="text-xs">
                       {t.name}
                     </Badge>
@@ -190,7 +194,7 @@ export default function ComicDetailPage({
             <div className="flex flex-col gap-2">
               {(
                 comic.chapters as {
-                  id: number;
+                  id: string | number;
                   number: string;
                   title: string;
                   published_at: string;
@@ -220,7 +224,12 @@ export default function ComicDetailPage({
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => deleteChapter(ch.id)}
+                        onClick={() =>
+                          setDeleteTarget({
+                            id: ch.id,
+                            label: `ตอนที่ ${ch.number}`,
+                          })
+                        }
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -232,6 +241,26 @@ export default function ComicDetailPage({
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="ลบตอนนี้หรือไม่?"
+        description={
+          deleteTarget
+            ? `${deleteTarget.label} และรูปภาพทั้งหมดจะถูกลบ`
+            : undefined
+        }
+        confirmText="ลบตอน"
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          const { id } = deleteTarget;
+          setDeleteTarget(null);
+          deleteChapter(id);
+        }}
+      />
     </div>
   );
 }

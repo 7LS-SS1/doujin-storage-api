@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, Trash2, Copy, Ban, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -24,6 +25,10 @@ export default function ApiKeysPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState("");
   const [newKey, setNewKey] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string | number;
+    name: string;
+  } | null>(null);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -42,7 +47,7 @@ export default function ApiKeysPage() {
     }
   }
 
-  async function toggleActive(id: number, currentActive: boolean) {
+  async function toggleActive(id: string | number, currentActive: boolean) {
     await fetch(`/api/admin/api-keys/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -52,8 +57,7 @@ export default function ApiKeysPage() {
     mutate();
   }
 
-  async function handleDelete(id: number) {
-    if (!confirm("Permanently delete this API key?")) return;
+  async function handleDelete(id: string | number) {
     const res = await fetch(`/api/admin/api-keys/${id}`, { method: "DELETE" });
     if (res.ok) { toast.success("Key deleted"); mutate(); }
   }
@@ -98,7 +102,7 @@ export default function ApiKeysPage() {
               <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No API keys</TableCell></TableRow>
             ) : (
               apiKeys.map((k: Record<string, unknown>) => (
-                <TableRow key={k.id as number} className="border-border">
+                <TableRow key={String(k.id)} className="border-border">
                   <TableCell className="font-medium text-foreground">{k.name as string}</TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">{k.key_prefix as string}...</TableCell>
                   <TableCell>
@@ -118,12 +122,22 @@ export default function ApiKeysPage() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => toggleActive(k.id as number, k.is_active as boolean)}
+                        onClick={() => toggleActive(k.id as string, k.is_active as boolean)}
                         title={k.is_active ? "Revoke" : "Activate"}
                       >
                         {k.is_active ? <Ban className="h-3.5 w-3.5" /> : <CheckCircle className="h-3.5 w-3.5" />}
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(k.id as number)}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() =>
+                          setDeleteTarget({
+                            id: k.id as string,
+                            name: k.name as string,
+                          })
+                        }
+                      >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -162,6 +176,26 @@ export default function ApiKeysPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="ลบ API key นี้หรือไม่?"
+        description={
+          deleteTarget
+            ? `ลบ "${deleteTarget.name}" แบบถาวรหรือไม่?`
+            : undefined
+        }
+        confirmText="ลบคีย์"
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          const { id } = deleteTarget;
+          setDeleteTarget(null);
+          handleDelete(id);
+        }}
+      />
     </div>
   );
 }
