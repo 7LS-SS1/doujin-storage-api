@@ -1,0 +1,128 @@
+// Prisma Schema for Media Storage Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enum Definitions
+enum UserRole {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum VideoVisibility {
+  PUBLIC
+  PRIVATE
+  DOMAIN_RESTRICTED
+}
+
+enum VideoStatus {
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum VideoType {
+  THAI_CLIP
+  AV_MOVIE
+}
+
+// User Model
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String   // Hashed password
+  role      UserRole @default(VIEWER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  videos Video[]
+
+  @@map("users")
+}
+
+// Category Model
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  videos Video[]
+
+  @@map("categories")
+}
+
+// Video Model
+model Video {
+  id           String          @id @default(cuid())
+  title        String
+  description  String?
+  videoUrl     String          // R2 URL
+  thumbnailUrl String?         // R2 URL
+  duration     Int?            // in seconds
+  fileSize     Int?            // in bytes
+  mimeType     String?
+  type         VideoType       @default(THAI_CLIP)
+  visibility   VideoVisibility @default(PUBLIC)
+  status       VideoStatus     @default(PROCESSING)
+  views        Int             @default(0)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  // Foreign Keys
+  categoryId  String?
+  createdById String
+
+  // Relations
+  category       Category?            @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  createdBy      User                 @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  allowedDomains VideoAllowedDomain[]
+
+  @@index([categoryId])
+  @@index([createdById])
+  @@index([status])
+  @@index([visibility])
+  @@index([type])
+  @@map("videos")
+}
+
+// Allowed Domains for Video Access
+model AllowedDomain {
+  id        String   @id @default(cuid())
+  domain    String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  videos VideoAllowedDomain[]
+
+  @@map("allowed_domains")
+}
+
+// Many-to-Many relation between Video and AllowedDomain
+model VideoAllowedDomain {
+  id       String @id @default(cuid())
+  videoId  String
+  domainId String
+
+  video  Video         @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  domain AllowedDomain @relation(fields: [domainId], references: [id], onDelete: Cascade)
+
+  @@unique([videoId, domainId])
+  @@index([videoId])
+  @@index([domainId])
+  @@map("video_allowed_domains")
+}
