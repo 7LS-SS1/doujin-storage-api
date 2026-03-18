@@ -99,6 +99,58 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS analytics_events (
+  id BIGSERIAL PRIMARY KEY,
+  event_type VARCHAR(50) NOT NULL,
+  comic_id INTEGER,
+  chapter_id INTEGER,
+  session_id VARCHAR(100) NOT NULL,
+  source_position SMALLINT,
+  device VARCHAR(20),
+  extra JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS comic_reactions (
+  id BIGSERIAL PRIMARY KEY,
+  comic_id INTEGER NOT NULL REFERENCES comics(id) ON DELETE CASCADE,
+  session_id VARCHAR(100) NOT NULL,
+  reaction_type VARCHAR(20) NOT NULL CHECK (reaction_type IN ('like', 'love', 'heart', 'bad')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (comic_id, session_id)
+);
+
+CREATE TABLE IF NOT EXISTS chapter_view_events (
+  id BIGSERIAL PRIMARY KEY,
+  event_type VARCHAR(50) NOT NULL DEFAULT 'chapter_view',
+  comic_id TEXT NOT NULL,
+  chapter_id TEXT NOT NULL,
+  user_id VARCHAR(255),
+  anon_id VARCHAR(255),
+  session_id VARCHAR(100),
+  dedupe_key VARCHAR(255) NOT NULL,
+  source VARCHAR(100),
+  referrer TEXT,
+  locale VARCHAR(20),
+  device VARCHAR(20),
+  client_ts TIMESTAMPTZ,
+  counted BOOLEAN NOT NULL DEFAULT TRUE,
+  duplicate_reason VARCHAR(50),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS comic_likes (
+  id BIGSERIAL PRIMARY KEY,
+  comic_id TEXT NOT NULL,
+  user_id VARCHAR(255) NOT NULL,
+  source VARCHAR(100),
+  client_ts TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (comic_id, user_id)
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_comics_slug ON comics(slug);
 CREATE INDEX IF NOT EXISTS idx_comics_series_id ON comics(series_id);
@@ -112,3 +164,17 @@ CREATE INDEX IF NOT EXISTS idx_categories_slug ON categories(slug);
 CREATE INDEX IF NOT EXISTS idx_tags_slug ON tags(slug);
 CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ae_comic_id ON analytics_events(comic_id);
+CREATE INDEX IF NOT EXISTS idx_ae_chapter_id ON analytics_events(chapter_id);
+CREATE INDEX IF NOT EXISTS idx_ae_event_type ON analytics_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_ae_created_at ON analytics_events(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ae_session_id ON analytics_events(session_id);
+CREATE INDEX IF NOT EXISTS idx_ae_event_chapter_created_at ON analytics_events(event_type, chapter_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ae_event_comic_created_at ON analytics_events(event_type, comic_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cr_comic_id ON comic_reactions(comic_id);
+CREATE INDEX IF NOT EXISTS idx_cve_comic_id ON chapter_view_events(comic_id);
+CREATE INDEX IF NOT EXISTS idx_cve_chapter_id ON chapter_view_events(chapter_id);
+CREATE INDEX IF NOT EXISTS idx_cve_created_at ON chapter_view_events(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cve_dedupe_recent ON chapter_view_events(chapter_id, dedupe_key, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cl_comic_id ON comic_likes(comic_id);
+CREATE INDEX IF NOT EXISTS idx_cl_user_id ON comic_likes(user_id);

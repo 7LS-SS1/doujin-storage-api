@@ -41,6 +41,7 @@ export interface ReactionState {
 }
 
 export type AnalyticsEventType =
+  | "chapter_view"
   | "page_view"
   | "hero_click"
   | "card_click"

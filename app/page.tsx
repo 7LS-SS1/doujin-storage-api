@@ -40,20 +40,21 @@ async function getTrendingComics(): Promise<Comic[]> {
       SELECT
         c.id, c.slug, c.title, c.author_name, c.status,
         c.cover_image_url, c.created_at, c.updated_at,
-        COUNT(ae.id)::int AS view_count,
+        COUNT(cve.id)::int AS view_count,
         (SELECT COUNT(*) FROM chapters ch WHERE ch.comic_id = c.id)::int AS chapter_count
       FROM comics c
-      LEFT JOIN analytics_events ae
-        ON ae.comic_id = c.id
-        AND ae.event_type = 'page_view'
-        AND ae.created_at >= NOW() - INTERVAL '7 days'
+      LEFT JOIN chapter_view_events cve
+        ON cve.comic_id = c.id::text
+        AND cve.event_type = 'chapter_view'
+        AND cve.counted = true
+        AND cve.created_at >= NOW() - INTERVAL '7 days'
       GROUP BY c.id
       ORDER BY view_count DESC, c.updated_at DESC
       LIMIT 20
     `;
     return rows as unknown as Comic[];
   } catch {
-    // Fallback: analytics table may not exist yet
+    // Fallback: chapter_view_events table may not exist yet
     try {
       const rows = await sql`
         SELECT

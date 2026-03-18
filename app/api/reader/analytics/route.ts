@@ -4,6 +4,7 @@ import { sql } from "@/lib/db";
 export const dynamic = "force-dynamic";
 
 const VALID_EVENTS = new Set([
+  "chapter_view",
   "page_view",
   "hero_click",
   "card_click",
