@@ -9,9 +9,19 @@ export const dynamic = 'force-dynamic';
 
 const chapterSchema = z.object({
   comicId: z.union([z.string().min(1), z.number()]).transform(String),
-  number: z.string().min(1),
+  number: z.string().optional(),
   title: z.string().optional(),
   publishedAt: z.string().optional(),
+  isOneShot: z.boolean().optional(),
+}).superRefine((data, ctx) => {
+  const chapterNumber = (data.number || "").trim();
+  if (!data.isOneShot && chapterNumber.length === 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["number"],
+      message: "Chapter number is required",
+    });
+  }
 });
 
 export async function GET(request: Request) {
@@ -121,18 +131,49 @@ export async function POST(request: Request) {
     }
 
     const data = parsed.data;
+    const chapterNumber = data.isOneShot ? "1" : (data.number || "").trim();
+    const chapterTitle = (data.title || "").trim();
+
+    if (data.isOneShot) {
+      const existingChapter = await sql`
+        SELECT id
+        FROM chapters
+        WHERE comic_id = ${data.comicId}
+        LIMIT 1
+      `;
+      if (existingChapter.length > 0) {
+        return NextResponse.json(
+          { error: "คอมมิคตอนเดียวจบมีได้เพียง 1 ตอน" },
+          { status: 409 }
+        );
+      }
+    }
+
     const hasPublishedAt = await tableHasColumn("chapters", "published_at");
     const result = hasPublishedAt
       ? await sql`
           INSERT INTO chapters (comic_id, number, title, published_at)
-          VALUES (${data.comicId}, ${data.number}, ${data.title ?? null}, ${data.publishedAt ?? new Date().toISOString()})
+          VALUES (${data.comicId}, ${chapterNumber}, ${chapterTitle || null}, ${data.publishedAt ?? new Date().toISOString()})
           RETURNING *
         `
       : await sql`
           INSERT INTO chapters (comic_id, number, title)
-          VALUES (${data.comicId}, ${data.number}, ${data.title ?? null})
+          VALUES (${data.comicId}, ${chapterNumber}, ${chapterTitle || null})
           RETURNING *
         `;
+
+    if (typeof data.isOneShot === "boolean") {
+      // Backward compatibility: older DBs may not have this column yet.
+      await sql`
+        ALTER TABLE comics
+        ADD COLUMN IF NOT EXISTS is_one_shot BOOLEAN NOT NULL DEFAULT FALSE
+      `;
+      await sql`
+        UPDATE comics
+        SET is_one_shot = ${data.isOneShot}, updated_at = NOW()
+        WHERE id = ${data.comicId}
+      `;
+    }
 
     await logAudit({ userEmail: session!.email, action: "create_chapter", entityType: "chapter", entityId: result[0].id });
     return NextResponse.json(result[0], { status: 201 });

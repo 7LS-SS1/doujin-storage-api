@@ -50,14 +50,14 @@ export default function AdminLayout({
         return res.json();
       })
       .then((data) => setUser(data))
-      .catch(() => router.push("/"))
+      .catch(() => router.push("/login"))
       .finally(() => setLoading(false));
   }, [router]);
 
   async function handleLogout() {
     await fetch("/api/admin/auth/logout", { method: "POST" });
     toast.success("ออกจากระบบแล้ว");
-    router.push("/");
+    router.push("/login");
   }
 
   if (loading) {

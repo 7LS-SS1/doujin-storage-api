@@ -172,6 +172,7 @@ export default function ComicDetailPage({
                 </DialogHeader>
                 <ChapterForm
                   comicId={comic.id}
+                  defaultIsOneShot={Boolean(comic.is_one_shot)}
                   onSuccess={() => {
                     setChapterOpen(false);
                     mutate();

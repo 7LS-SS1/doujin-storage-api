@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS comics (
   description TEXT,
   author_name VARCHAR(255),
   status VARCHAR(50) DEFAULT 'ongoing' CHECK (status IN ('ongoing', 'completed', 'hiatus')),
+  is_one_shot BOOLEAN NOT NULL DEFAULT FALSE,
   cover_image_url TEXT,
   cover_object_key TEXT,
   series_id INTEGER REFERENCES series(id) ON DELETE SET NULL,

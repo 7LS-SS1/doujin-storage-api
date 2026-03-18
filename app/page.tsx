@@ -1,94 +1,208 @@
-"use client";
+// ============================================================
+// Comic Reader — Homepage (Server Component)
+//
+// Data is fetched directly from the database.
+// Interactive sections (Hero tabs, Row arrows, Reactions)
+// are delegated to Client Components.
+// ============================================================
 
-import React from "react"
+import { Suspense } from "react";
+import { sql } from "@/lib/db";
+import type { Comic } from "@/types/reader";
+import SiteNav from "@/components/reader/site-nav";
+import HeroSection from "@/components/reader/hero-section";
+import ComicRow from "@/components/reader/comic-row";
+import { HeroSkeleton, ComicRowSkeleton } from "@/components/reader/skeletons";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BookOpen, Loader2 } from "lucide-react";
-import { toast } from "sonner";
+// ── Data Fetchers ─────────────────────────────────────────────
 
-export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+async function getNewComics(): Promise<Comic[]> {
+  try {
+    const rows = await sql`
+      SELECT
+        c.id, c.slug, c.title, c.author_name, c.status,
+        c.cover_image_url, c.created_at, c.updated_at,
+        (SELECT COUNT(*) FROM chapters ch WHERE ch.comic_id = c.id)::int AS chapter_count
+      FROM comics c
+      ORDER BY c.created_at DESC
+      LIMIT 20
+    `;
+    return rows as unknown as Comic[];
+  } catch {
+    return [];
+  }
+}
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-
+async function getTrendingComics(): Promise<Comic[]> {
+  // Try analytics-based trending first
+  try {
+    const rows = await sql`
+      SELECT
+        c.id, c.slug, c.title, c.author_name, c.status,
+        c.cover_image_url, c.created_at, c.updated_at,
+        COUNT(ae.id)::int AS view_count,
+        (SELECT COUNT(*) FROM chapters ch WHERE ch.comic_id = c.id)::int AS chapter_count
+      FROM comics c
+      LEFT JOIN analytics_events ae
+        ON ae.comic_id = c.id
+        AND ae.event_type = 'page_view'
+        AND ae.created_at >= NOW() - INTERVAL '7 days'
+      GROUP BY c.id
+      ORDER BY view_count DESC, c.updated_at DESC
+      LIMIT 20
+    `;
+    return rows as unknown as Comic[];
+  } catch {
+    // Fallback: analytics table may not exist yet
     try {
-      const res = await fetch("/api/admin/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (res.ok) {
-        toast.success("เข้าสู่ระบบสำเร็จ");
-        router.push("/admin");
-      } else {
-        const data = await res.json();
-        toast.error(data.error || "ข้อมูลเข้าสู่ระบบไม่ถูกต้อง");
-      }
+      const rows = await sql`
+        SELECT
+          c.id, c.slug, c.title, c.author_name, c.status,
+          c.cover_image_url, c.created_at, c.updated_at,
+          0 AS view_count,
+          (SELECT COUNT(*) FROM chapters ch WHERE ch.comic_id = c.id)::int AS chapter_count
+        FROM comics c
+        ORDER BY c.updated_at DESC
+        LIMIT 20
+      `;
+      return rows as unknown as Comic[];
     } catch {
-      toast.error("เกิดข้อผิดพลาดของเครือข่าย");
-    } finally {
-      setLoading(false);
+      return [];
     }
   }
+}
+
+async function getOngoingComics(): Promise<Comic[]> {
+  try {
+    const rows = await sql`
+      SELECT
+        c.id, c.slug, c.title, c.author_name, c.status,
+        c.cover_image_url, c.created_at, c.updated_at,
+        (SELECT COUNT(*) FROM chapters ch WHERE ch.comic_id = c.id)::int AS chapter_count
+      FROM comics c
+      WHERE c.status = 'ongoing'
+      ORDER BY c.updated_at DESC
+      LIMIT 20
+    `;
+    return rows as unknown as Comic[];
+  } catch {
+    return [];
+  }
+}
+
+async function getCompletedComics(): Promise<Comic[]> {
+  try {
+    const rows = await sql`
+      SELECT
+        c.id, c.slug, c.title, c.author_name, c.status,
+        c.cover_image_url, c.created_at, c.updated_at,
+        (SELECT COUNT(*) FROM chapters ch WHERE ch.comic_id = c.id)::int AS chapter_count
+      FROM comics c
+      WHERE c.status = 'completed'
+      ORDER BY c.updated_at DESC
+      LIMIT 20
+    `;
+    return rows as unknown as Comic[];
+  } catch {
+    return [];
+  }
+}
+
+// ── Page ──────────────────────────────────────────────────────
+
+export default async function HomePage() {
+  const [newComics, trendingComics, ongoingComics, completedComics] =
+    await Promise.all([
+      getNewComics(),
+      getTrendingComics(),
+      getOngoingComics(),
+      getCompletedComics(),
+    ]);
+
+  const hasContent =
+    newComics.length > 0 ||
+    trendingComics.length > 0 ||
+    ongoingComics.length > 0 ||
+    completedComics.length > 0;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md border-border bg-card">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-            <BookOpen className="h-6 w-6 text-primary" />
-          </div>
-          <CardTitle className="text-2xl font-bold text-foreground">
-            Comic Storage API
-          </CardTitle>
-          <CardDescription className="text-muted-foreground">
-            เข้าสู่ระบบเพื่อจัดการแผงควบคุม
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="email" className="text-foreground">อีเมล</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="admin@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="border-input bg-secondary text-foreground"
+    <div className="min-h-screen bg-background">
+      <SiteNav />
+
+      {/* ── Hero ─────────────────────────────────────────────── */}
+      <Suspense fallback={<HeroSkeleton />}>
+        <HeroSection newComics={newComics} trendingComics={trendingComics} />
+      </Suspense>
+
+      {/* ── Comic rows ────────────────────────────────────────── */}
+      {hasContent ? (
+        <div className="mx-auto max-w-7xl space-y-10 px-4 py-10 sm:px-6 lg:px-8">
+          <Suspense fallback={<ComicRowSkeleton />}>
+            <ComicRow
+              title="✨ มาใหม่ล่าสุด"
+              comics={newComics}
+              badge="มาใหม่"
+              seeAllHref="/?sort=new"
+            />
+          </Suspense>
+
+          <Suspense fallback={<ComicRowSkeleton />}>
+            <ComicRow
+              title="🔥 ยอดนิยมสัปดาห์นี้"
+              comics={trendingComics}
+              badge="HOT"
+              seeAllHref="/?sort=trending"
+            />
+          </Suspense>
+
+          {ongoingComics.length > 0 && (
+            <Suspense fallback={<ComicRowSkeleton />}>
+              <ComicRow
+                title="📖 กำลังดำเนินเรื่อง"
+                comics={ongoingComics}
+                badge="อัปเดต"
+                seeAllHref="/?status=ongoing"
               />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="password" className="text-foreground">รหัสผ่าน</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="กรอกรหัสผ่าน"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="border-input bg-secondary text-foreground"
+            </Suspense>
+          )}
+
+          {completedComics.length > 0 && (
+            <Suspense fallback={<ComicRowSkeleton />}>
+              <ComicRow
+                title="✅ จบแล้ว"
+                comics={completedComics}
+                seeAllHref="/?status=completed"
               />
-            </div>
-            <Button type="submit" disabled={loading} className="w-full">
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              เข้าสู่ระบบ
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+            </Suspense>
+          )}
+        </div>
+      ) : (
+        /* Empty state */
+        <div className="flex flex-col items-center justify-center py-32 text-center">
+          <span className="text-5xl" role="img" aria-label="ยังไม่มีการ์ตูน">
+            📚
+          </span>
+          <h2 className="mt-4 text-lg font-semibold text-foreground">
+            ยังไม่มีการ์ตูนในระบบ
+          </h2>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            เพิ่มการ์ตูนผ่านแผงควบคุมได้เลย
+          </p>
+          <a
+            href="/admin"
+            className="mt-4 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            ไปยังแผงควบคุม →
+          </a>
+        </div>
+      )}
+
+      {/* ── Footer ────────────────────────────────────────────── */}
+      <footer className="mt-16 border-t border-border/40 py-8 text-center text-xs text-muted-foreground">
+        <p>
+          © {new Date().getFullYear()} คลังการ์ตูน · ข้อมูลอัปเดตโดยอัตโนมัติ
+        </p>
+      </footer>
     </div>
   );
 }

@@ -1,0 +1,509 @@
+/*
+Theme Name:   Comic Reader
+Theme URI:    https://github.com/your-org/comic-storage-api
+Description:  Dark manga reader theme designed to work with the Comic Reader Companion plugin. Optimised for vertical-scroll chapter reading on both mobile and desktop.
+Version:      1.0.1
+Requires at least: 6.0
+Requires PHP: 8.1
+Author:       Comic Storage Team
+License:      GPL v2 or later
+Text Domain:  comic-reader
+*/
+
+/* ============================================================
+   DESIGN TOKENS
+   ============================================================ */
+:root {
+    --crc-bg:            #0f0f0f;
+    --crc-surface:       #1a1a1a;
+    --crc-surface-2:     #242424;
+    --crc-border:        #2e2e2e;
+    --crc-text:          #e8e8e8;
+    --crc-text-muted:    #888;
+    --crc-accent:        #e8552a;       /* warm orange — manga feel */
+    --crc-accent-hover:  #ff6b3d;
+    --crc-link:          #c4a46b;
+    --crc-link-hover:    #e0be8a;
+    --crc-radius:        6px;
+    --crc-radius-lg:     12px;
+    --crc-shadow:        0 4px 20px rgba(0,0,0,.5);
+    --crc-container:     1200px;
+    --crc-font:          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+    /* ── Homepage tokens ───────────────────────────────── */
+    --crc-hero-min-h:    clamp(400px, 62vh, 660px);
+    --crc-home-card-w:   clamp(110px, 14vw, 148px);
+    --crc-home-thumb-w:  44px;
+    --crc-home-thumb-h:  60px;
+}
+
+/* ============================================================
+   RESET / BASE
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; scroll-behavior: smooth; }
+
+body {
+    font-family: var(--crc-font);
+    background: var(--crc-bg);
+    color: var(--crc-text);
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+img { max-width: 100%; height: auto; display: block; }
+a { color: var(--crc-link); text-decoration: none; transition: color .2s; }
+a:hover, a:focus { color: var(--crc-link-hover); }
+a:focus-visible { outline: 2px solid var(--crc-accent); outline-offset: 3px; }
+
+ul { list-style: none; }
+
+/* ============================================================
+   LAYOUT HELPERS
+   ============================================================ */
+.crc-container {
+    max-width: var(--crc-container);
+    margin-inline: auto;
+    padding-inline: 1rem;
+}
+
+.crc-page { padding-block: 2rem; min-height: 80vh; }
+
+/* ============================================================
+   SITE HEADER
+   ============================================================ */
+.crc-site-header {
+    background: var(--crc-surface);
+    border-bottom: 1px solid var(--crc-border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 12px rgba(0,0,0,.4);
+}
+
+.crc-site-header__inner {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding-block: .75rem;
+    max-width: var(--crc-container);
+    margin-inline: auto;
+    padding-inline: 1rem;
+}
+
+.crc-site-header__logo {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--crc-accent);
+    flex-shrink: 0;
+}
+.crc-site-header__logo:hover { color: var(--crc-accent-hover); }
+
+.crc-site-header__nav { display: flex; gap: 1.25rem; margin-left: auto; flex-wrap: wrap; }
+.crc-site-header__nav a { font-size: .9rem; color: var(--crc-text-muted); }
+.crc-site-header__nav a:hover { color: var(--crc-text); }
+
+/* ============================================================
+   SITE FOOTER
+   ============================================================ */
+.crc-site-footer {
+    background: var(--crc-surface);
+    border-top: 1px solid var(--crc-border);
+    padding: 2rem 1rem;
+    text-align: center;
+    color: var(--crc-text-muted);
+    font-size: .85rem;
+}
+.crc-site-footer a { color: var(--crc-text-muted); }
+.crc-site-footer a:hover { color: var(--crc-text); }
+
+/* ============================================================
+   BREADCRUMB
+   ============================================================ */
+.crc-breadcrumb {
+    font-size: .82rem;
+    color: var(--crc-text-muted);
+    margin-bottom: 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .25rem;
+    align-items: center;
+}
+.crc-breadcrumb a { color: var(--crc-text-muted); }
+.crc-breadcrumb a:hover { color: var(--crc-text); }
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.crc-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .6rem 1.2rem;
+    border-radius: var(--crc-radius);
+    font-size: .9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .2s, color .2s, border-color .2s;
+    border: 2px solid transparent;
+    text-decoration: none;
+    line-height: 1.4;
+}
+.crc-btn--primary {
+    background: var(--crc-accent);
+    color: #fff;
+    border-color: var(--crc-accent);
+}
+.crc-btn--primary:hover { background: var(--crc-accent-hover); border-color: var(--crc-accent-hover); color: #fff; }
+
+.crc-btn--ghost {
+    background: transparent;
+    color: var(--crc-text);
+    border-color: var(--crc-border);
+}
+.crc-btn--ghost:hover { border-color: var(--crc-text-muted); color: var(--crc-text); }
+
+.crc-btn--sm { padding: .35rem .8rem; font-size: .82rem; }
+
+/* ============================================================
+   BADGES
+   ============================================================ */
+.crc-badge {
+    display: inline-block;
+    padding: .15rem .5rem;
+    border-radius: 999px;
+    font-size: .72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+.crc-badge--ongoing  { background: #1a4a1a; color: #6ddb6d; }
+.crc-badge--completed { background: #1a1a4a; color: #6d9ddb; }
+.crc-badge--hiatus   { background: #4a3a1a; color: #dbb06d; }
+
+/* ============================================================
+   TAGS
+   ============================================================ */
+.crc-tag {
+    display: inline-block;
+    padding: .2rem .6rem;
+    border-radius: 4px;
+    font-size: .78rem;
+    margin-right: .3rem;
+    margin-bottom: .3rem;
+    transition: background .2s;
+}
+.crc-tag--category { background: var(--crc-surface-2); color: var(--crc-text-muted); }
+.crc-tag--category:hover { background: var(--crc-accent); color: #fff; }
+.crc-tag--tag { background: var(--crc-surface); border: 1px solid var(--crc-border); color: var(--crc-text-muted); }
+.crc-tag--tag:hover { border-color: var(--crc-accent); color: var(--crc-accent); }
+
+/* ============================================================
+   SECTION TITLES
+   ============================================================ */
+.crc-section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--crc-text);
+    border-left: 3px solid var(--crc-accent);
+    padding-left: .75rem;
+    margin-bottom: 1rem;
+}
+
+/* ============================================================
+   FILTER FORM (archive)
+   ============================================================ */
+.crc-filter-form { margin-bottom: 1.5rem; }
+
+.crc-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem;
+    align-items: center;
+}
+
+.crc-search-wrap {
+    display: flex;
+    gap: .4rem;
+    flex: 1;
+    min-width: 200px;
+}
+
+.crc-search-input {
+    flex: 1;
+    padding: .5rem .8rem;
+    background: var(--crc-surface-2);
+    border: 1px solid var(--crc-border);
+    border-radius: var(--crc-radius);
+    color: var(--crc-text);
+    font-size: .9rem;
+}
+.crc-search-input::placeholder { color: var(--crc-text-muted); }
+.crc-search-input:focus { outline: none; border-color: var(--crc-accent); }
+
+.crc-select {
+    padding: .5rem .8rem;
+    background: var(--crc-surface-2);
+    border: 1px solid var(--crc-border);
+    border-radius: var(--crc-radius);
+    color: var(--crc-text);
+    font-size: .9rem;
+    cursor: pointer;
+}
+.crc-select:focus { outline: none; border-color: var(--crc-accent); }
+
+.crc-clear-filters { color: var(--crc-text-muted); font-size: .85rem; }
+.crc-clear-filters:hover { color: var(--crc-accent); }
+
+.crc-result-count { color: var(--crc-text-muted); font-size: .85rem; margin-bottom: 1rem; }
+
+/* ============================================================
+   COMIC GRID
+   ============================================================ */
+.crc-comic-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.crc-comic-card {
+    background: var(--crc-surface);
+    border-radius: var(--crc-radius-lg);
+    overflow: hidden;
+    border: 1px solid var(--crc-border);
+    transition: transform .2s, box-shadow .2s;
+}
+.crc-comic-card:hover { transform: translateY(-4px); box-shadow: var(--crc-shadow); }
+
+.crc-comic-card__link { display: block; color: inherit; text-decoration: none; }
+.crc-comic-card__link:hover { color: inherit; }
+
+.crc-comic-card__cover {
+    position: relative;
+    aspect-ratio: 3 / 4;
+    overflow: hidden;
+    background: var(--crc-surface-2);
+}
+
+.crc-comic-card__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform .3s;
+}
+.crc-comic-card:hover .crc-comic-card__img { transform: scale(1.04); }
+
+.crc-comic-card__no-cover {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    color: var(--crc-text-muted);
+}
+
+/* Badge on cover */
+.crc-comic-card__cover .crc-badge {
+    position: absolute;
+    bottom: .4rem;
+    left: .4rem;
+}
+
+.crc-comic-card__body { padding: .6rem .75rem .75rem; }
+
+.crc-comic-card__title {
+    font-size: .88rem;
+    font-weight: 600;
+    color: var(--crc-text);
+    margin-bottom: .2rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.crc-comic-card__author { font-size: .75rem; color: var(--crc-text-muted); margin-bottom: .2rem; }
+.crc-comic-card__latest { font-size: .75rem; color: var(--crc-accent); }
+
+.crc-comic-card--small .crc-comic-card__cover { aspect-ratio: 2 / 3; }
+.crc-comic-card--small .crc-comic-card__title { font-size: .8rem; }
+
+/* ============================================================
+   PAGINATION
+   ============================================================ */
+.crc-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--crc-border);
+    flex-wrap: wrap;
+}
+
+.crc-pagination__btn {
+    padding: .45rem 1rem;
+    border: 1px solid var(--crc-border);
+    border-radius: var(--crc-radius);
+    color: var(--crc-text);
+    font-size: .9rem;
+    transition: background .2s, border-color .2s;
+}
+.crc-pagination__btn:hover { background: var(--crc-surface-2); border-color: var(--crc-accent); color: var(--crc-text); }
+.crc-pagination__info { color: var(--crc-text-muted); font-size: .85rem; }
+
+/* ============================================================
+   COMIC HERO (single comic)
+   ============================================================ */
+.crc-comic-hero {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 2.5rem;
+    flex-wrap: wrap;
+}
+
+.crc-comic-hero__cover {
+    flex-shrink: 0;
+    width: 220px;
+    border-radius: var(--crc-radius-lg);
+    overflow: hidden;
+    box-shadow: var(--crc-shadow);
+    align-self: flex-start;
+}
+.crc-comic-hero__img { width: 100%; aspect-ratio: 3/4; object-fit: cover; }
+.crc-comic-hero__no-cover {
+    width: 100%;
+    aspect-ratio: 3/4;
+    background: var(--crc-surface-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4rem;
+}
+
+.crc-comic-hero__meta { flex: 1; min-width: 280px; }
+
+.crc-comic-hero__title {
+    font-size: 1.8rem;
+    font-weight: 800;
+    margin-bottom: .75rem;
+    line-height: 1.2;
+}
+
+.crc-comic-hero__author,
+.crc-comic-hero__status,
+.crc-comic-hero__series {
+    margin-bottom: .5rem;
+    font-size: .9rem;
+}
+
+.crc-label {
+    color: var(--crc-text-muted);
+    font-size: .82rem;
+    margin-right: .4rem;
+}
+
+.crc-comic-hero__terms { margin-bottom: .75rem; }
+
+.crc-comic-hero__actions {
+    display: flex;
+    gap: .75rem;
+    margin-top: 1.25rem;
+    flex-wrap: wrap;
+}
+
+/* ============================================================
+   DESCRIPTION
+   ============================================================ */
+.crc-comic-description {
+    margin-bottom: 2.5rem;
+    padding: 1.25rem;
+    background: var(--crc-surface);
+    border-radius: var(--crc-radius-lg);
+    border: 1px solid var(--crc-border);
+}
+.crc-comic-description__body { color: var(--crc-text-muted); line-height: 1.8; font-size: .95rem; }
+.crc-comic-description__body p { margin-bottom: .75rem; }
+
+/* ============================================================
+   CHAPTER LIST
+   ============================================================ */
+.crc-chapter-list { margin-bottom: 2.5rem; }
+
+.crc-chapters-ul { display: flex; flex-direction: column; gap: .4rem; }
+
+.crc-chapter-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: .6rem 1rem;
+    background: var(--crc-surface);
+    border: 1px solid var(--crc-border);
+    border-radius: var(--crc-radius);
+    transition: background .15s, border-color .15s;
+    gap: 1rem;
+}
+.crc-chapter-item:hover { background: var(--crc-surface-2); border-color: var(--crc-accent); }
+
+.crc-chapter-item__link {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    flex: 1;
+    color: var(--crc-text);
+    font-size: .9rem;
+}
+.crc-chapter-item__link:hover { color: var(--crc-text); }
+
+.crc-chapter-item__num { font-weight: 600; color: var(--crc-accent); flex-shrink: 0; }
+.crc-chapter-item__title { color: var(--crc-text-muted); font-size: .85rem; }
+.crc-chapter-item__date { color: var(--crc-text-muted); font-size: .78rem; flex-shrink: 0; white-space: nowrap; }
+
+/* ============================================================
+   RELATED GRID
+   ============================================================ */
+.crc-related-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: .75rem;
+}
+
+/* ============================================================
+   EMPTY STATE
+   ============================================================ */
+.crc-empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--crc-text-muted);
+}
+.crc-empty-state p { margin-bottom: 1rem; }
+
+/* ============================================================
+   ARCHIVE TITLE
+   ============================================================ */
+.crc-archive-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1.25rem;
+}
+.crc-archive-title span { color: var(--crc-accent); }
+
+/* ============================================================
+   MOBILE RESPONSIVE
+   ============================================================ */
+@media (max-width: 640px) {
+    .crc-comic-hero { gap: 1rem; }
+    .crc-comic-hero__cover { width: 140px; }
+    .crc-comic-hero__title { font-size: 1.3rem; }
+
+    .crc-comic-grid {
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        gap: .6rem;
+    }
+
+    .crc-site-header__nav { display: none; }
+}
