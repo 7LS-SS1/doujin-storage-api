@@ -270,7 +270,10 @@ export default function ApiKeysPage() {
               </div>
               <div className="flex flex-col gap-2">
                 <Label className="text-foreground">Scope</Label>
-                <Select value={scope} onValueChange={setScope}>
+                <Select
+                  value={scope}
+                  onValueChange={(value) => setScope(value as ApiKey["scope"])}
+                >
                   <SelectTrigger className="border-input bg-secondary text-foreground">
                     <SelectValue />
                   </SelectTrigger>
