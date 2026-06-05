@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { requireApiKey } from "@/lib/public-guard";
+import {
+  comicsHaveTypeColumn,
+  resolveComicVisibility,
+} from "@/lib/comic-scope";
 
 export const dynamic = 'force-dynamic';
 
@@ -8,17 +12,36 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireApiKey(request);
+  const { error, client } = await requireApiKey(request);
   if (error) return error;
 
   const { id } = await params;
   const chapterId = id;
+  const { searchParams } = new URL(request.url);
+  const requestedComicType =
+    searchParams.get("comicType") || searchParams.get("type") || "";
+  const hasComicTypeColumn = await comicsHaveTypeColumn();
+  const visibility = hasComicTypeColumn
+    ? resolveComicVisibility(client.scope, requestedComicType)
+    : "all";
 
-  const rows = await sql`
-    SELECT ch.*, c.slug as comic_slug, c.title as comic_title
-    FROM chapters ch JOIN comics c ON ch.comic_id = c.id
-    WHERE ch.id = ${chapterId}
-  `;
+  if (visibility === "none") {
+    return NextResponse.json({ error: "Chapter not found" }, { status: 404 });
+  }
+
+  const comicTypeFilter = visibility === "all" ? "" : visibility;
+  const rows = hasComicTypeColumn
+    ? await sql`
+        SELECT ch.*, c.slug as comic_slug, c.title as comic_title
+        FROM chapters ch JOIN comics c ON ch.comic_id = c.id
+        WHERE ch.id = ${chapterId}
+          AND (${comicTypeFilter} = '' OR c.comic_type = ${comicTypeFilter})
+      `
+    : await sql`
+        SELECT ch.*, c.slug as comic_slug, c.title as comic_title
+        FROM chapters ch JOIN comics c ON ch.comic_id = c.id
+        WHERE ch.id = ${chapterId}
+      `;
 
   if (rows.length === 0) {
     return NextResponse.json({ error: "Chapter not found" }, { status: 404 });

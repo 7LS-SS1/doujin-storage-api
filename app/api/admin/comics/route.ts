@@ -3,7 +3,8 @@ import { sql } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-guard";
 import { logAudit } from "@/lib/audit";
 import { generateSlug } from "@/lib/slug";
-import { getComicsAltTitlesType } from "@/lib/db-schema";
+import { getComicsAltTitlesType, tableHasColumn } from "@/lib/db-schema";
+import { COMIC_TYPES, normalizeComicType } from "@/lib/comic-scope";
 import { z } from "zod";
 
 export const dynamic = 'force-dynamic';
@@ -23,6 +24,7 @@ const comicSchema = z.object({
   altTitles: z.array(z.string()).default([]),
   description: z.string().optional().nullable(),
   authorName: z.string().optional().nullable(),
+  comicType: z.enum(COMIC_TYPES).default("manga"),
   status: z.enum(["ongoing", "completed", "hiatus"]).default("ongoing"),
   coverImageUrl: z.string().optional().nullable(),
   coverObjectKey: z.string().optional().nullable(),
@@ -37,35 +39,75 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const search = searchParams.get("search") || "";
+  const requestedComicType = normalizeComicType(searchParams.get("comicType"));
   const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
   const pageSize = Math.min(50, Math.max(1, parseInt(searchParams.get("pageSize") || "20")));
   const offset = (page - 1) * pageSize;
+  const hasComicTypeColumn = await tableHasColumn("comics", "comic_type");
 
   let comics;
   let countResult;
 
   if (search) {
-    comics = await sql`
-      SELECT c.*, s.title as series_title
-      FROM comics c 
-      LEFT JOIN series s ON c.series_id = s.id
-      WHERE c.title ILIKE ${"%" + search + "%"} OR c.slug ILIKE ${"%" + search + "%"}
-      ORDER BY c.updated_at DESC
-      LIMIT ${pageSize} OFFSET ${offset}
-    `;
-    countResult = await sql`
-      SELECT COUNT(*) as total FROM comics 
-      WHERE title ILIKE ${"%" + search + "%"} OR slug ILIKE ${"%" + search + "%"}
-    `;
+    if (hasComicTypeColumn) {
+      comics = await sql`
+        SELECT c.*, s.title as series_title
+        FROM comics c 
+        LEFT JOIN series s ON c.series_id = s.id
+        WHERE (
+          c.title ILIKE ${"%" + search + "%"} OR c.slug ILIKE ${"%" + search + "%"}
+        )
+          AND (${requestedComicType ?? ""} = '' OR c.comic_type = ${requestedComicType ?? ""})
+        ORDER BY c.updated_at DESC
+        LIMIT ${pageSize} OFFSET ${offset}
+      `;
+      countResult = await sql`
+        SELECT COUNT(*) as total
+        FROM comics
+        WHERE (
+          title ILIKE ${"%" + search + "%"} OR slug ILIKE ${"%" + search + "%"}
+        )
+          AND (${requestedComicType ?? ""} = '' OR comic_type = ${requestedComicType ?? ""})
+      `;
+    } else {
+      comics = await sql`
+        SELECT c.*, s.title as series_title
+        FROM comics c 
+        LEFT JOIN series s ON c.series_id = s.id
+        WHERE c.title ILIKE ${"%" + search + "%"} OR c.slug ILIKE ${"%" + search + "%"}
+        ORDER BY c.updated_at DESC
+        LIMIT ${pageSize} OFFSET ${offset}
+      `;
+      countResult = await sql`
+        SELECT COUNT(*) as total FROM comics 
+        WHERE title ILIKE ${"%" + search + "%"} OR slug ILIKE ${"%" + search + "%"}
+      `;
+    }
   } else {
-    comics = await sql`
-      SELECT c.*, s.title as series_title
-      FROM comics c
-      LEFT JOIN series s ON c.series_id = s.id
-      ORDER BY c.updated_at DESC
-      LIMIT ${pageSize} OFFSET ${offset}
-    `;
-    countResult = await sql`SELECT COUNT(*) as total FROM comics`;
+    if (hasComicTypeColumn) {
+      comics = await sql`
+        SELECT c.*, s.title as series_title
+        FROM comics c
+        LEFT JOIN series s ON c.series_id = s.id
+        WHERE (${requestedComicType ?? ""} = '' OR c.comic_type = ${requestedComicType ?? ""})
+        ORDER BY c.updated_at DESC
+        LIMIT ${pageSize} OFFSET ${offset}
+      `;
+      countResult = await sql`
+        SELECT COUNT(*) as total
+        FROM comics
+        WHERE (${requestedComicType ?? ""} = '' OR comic_type = ${requestedComicType ?? ""})
+      `;
+    } else {
+      comics = await sql`
+        SELECT c.*, s.title as series_title
+        FROM comics c
+        LEFT JOIN series s ON c.series_id = s.id
+        ORDER BY c.updated_at DESC
+        LIMIT ${pageSize} OFFSET ${offset}
+      `;
+      countResult = await sql`SELECT COUNT(*) as total FROM comics`;
+    }
   }
 
   // Get categories and tags for each comic
@@ -119,21 +161,36 @@ export async function POST(request: Request) {
     const data = parsed.data;
     const slug = data.slug || generateSlug(data.title);
     const altTitlesType = await getComicsAltTitlesType();
+    const hasComicTypeColumn = await tableHasColumn("comics", "comic_type");
     const altTitlesValue =
       altTitlesType === "text_array"
         ? data.altTitles
         : JSON.stringify(data.altTitles);
 
-    const result = await sql`
-      INSERT INTO comics (slug, title, alt_titles, description, author_name, status, cover_image_url, cover_object_key, series_id)
-      VALUES (
-        ${slug}, ${data.title}, ${altTitlesValue},
-        ${data.description ?? null}, ${data.authorName ?? null}, ${data.status},
-        ${data.coverImageUrl ?? null}, ${data.coverObjectKey ?? null},
-        ${data.seriesId ?? null}
-      )
-      RETURNING *
-    `;
+    const result = hasComicTypeColumn
+      ? await sql`
+          INSERT INTO comics (
+            slug, title, alt_titles, description, author_name, comic_type, status,
+            cover_image_url, cover_object_key, series_id
+          )
+          VALUES (
+            ${slug}, ${data.title}, ${altTitlesValue},
+            ${data.description ?? null}, ${data.authorName ?? null}, ${data.comicType}, ${data.status},
+            ${data.coverImageUrl ?? null}, ${data.coverObjectKey ?? null},
+            ${data.seriesId ?? null}
+          )
+          RETURNING *
+        `
+      : await sql`
+          INSERT INTO comics (slug, title, alt_titles, description, author_name, status, cover_image_url, cover_object_key, series_id)
+          VALUES (
+            ${slug}, ${data.title}, ${altTitlesValue},
+            ${data.description ?? null}, ${data.authorName ?? null}, ${data.status},
+            ${data.coverImageUrl ?? null}, ${data.coverObjectKey ?? null},
+            ${data.seriesId ?? null}
+          )
+          RETURNING *
+        `;
 
     const comic = result[0];
 
@@ -151,7 +208,7 @@ export async function POST(request: Request) {
       action: "create_comic",
       entityType: "comic",
       entityId: comic.id,
-      details: { title: data.title, slug },
+      details: { title: data.title, slug, comicType: data.comicType },
     });
 
     return NextResponse.json(comic, { status: 201 });

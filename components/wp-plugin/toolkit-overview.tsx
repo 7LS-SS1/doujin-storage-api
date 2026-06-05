@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -28,6 +29,7 @@ import {
   requirements,
   roleCards,
   routePatterns,
+  themeDownloads,
   toolkitPackages,
   useCases,
   versionNote,
@@ -41,6 +43,8 @@ const packageIconMap = {
 const featureIconMap = [Shield, Clock3, Database, Route, Workflow, Wrench];
 
 export function WordPressToolkitOverview() {
+  const companionPackage = toolkitPackages.find((pkg) => pkg.id === "companion");
+
   return (
     <div className="flex flex-col gap-8">
       <section className="relative overflow-hidden rounded-[28px] border border-emerald-500/20 bg-[radial-gradient(circle_at_top_left,rgba(34,197,94,0.16),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(245,158,11,0.14),transparent_30%),linear-gradient(135deg,rgba(8,10,12,0.96),rgba(10,18,14,0.98))] p-6 shadow-2xl shadow-black/20 lg:p-8">
@@ -61,9 +65,9 @@ export function WordPressToolkitOverview() {
                 ชุดติดตั้ง WordPress สำหรับเปลี่ยน Comic Storage API ให้เป็นหน้าอ่านคอมมิคที่พร้อมใช้งานจริง
               </h2>
               <p className="max-w-2xl text-sm leading-7 text-zinc-300 lg:text-base">
-                หน้านี้สรุปเครื่องมือหลัก 2 ตัวที่ต้องติดตั้งร่วมกันบน WordPress:
-                Theme สำหรับ UX/UI ฝั่งหน้าบ้าน และ Companion Plugin สำหรับเชื่อม API,
-                sync ข้อมูล, จัดการ route และงานปฏิบัติการในแอดมิน
+                หน้านี้สรุปเครื่องมือหลัก 2 ส่วนที่ต้องใช้ร่วมกันบน WordPress:
+                เลือก Theme จากคลังธีมฝั่งหน้าบ้าน 1 ตัว และติดตั้ง Companion Plugin
+                สำหรับเชื่อม API, sync ข้อมูล, จัดการ route และงานปฏิบัติการในแอดมิน
               </p>
             </div>
 
@@ -75,23 +79,25 @@ export function WordPressToolkitOverview() {
                 </Link>
               </Button>
               <Button asChild size="lg" variant="outline" className="h-11 rounded-full border-zinc-700 bg-zinc-950/40 px-6 text-zinc-100 hover:bg-zinc-900">
-                <a href={toolkitPackages[0].href} download>
-                  ดาวน์โหลด Theme ZIP
-                  <Download className="h-4 w-4" />
+                <a href="#theme-downloads">
+                  เลือก Themes
+                  <ArrowRight className="h-4 w-4" />
                 </a>
               </Button>
-              <Button asChild size="lg" variant="outline" className="h-11 rounded-full border-zinc-700 bg-zinc-950/40 px-6 text-zinc-100 hover:bg-zinc-900">
-                <a href={toolkitPackages[1].href} download>
-                  ดาวน์โหลด Companion ZIP
-                  <Download className="h-4 w-4" />
-                </a>
-              </Button>
+              {companionPackage ? (
+                <Button asChild size="lg" variant="outline" className="h-11 rounded-full border-zinc-700 bg-zinc-950/40 px-6 text-zinc-100 hover:bg-zinc-900">
+                  <a href={companionPackage.href} download>
+                    ดาวน์โหลด Companion ZIP
+                    <Download className="h-4 w-4" />
+                  </a>
+                </Button>
+              ) : null}
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
               <HeroChecklist
-                title="Theme สำหรับหน้าบ้าน"
-                description="โฮม, archive, comic detail และ reader"
+                title="เลือก Theme ให้ตรงแนวเว็บ"
+                description="มีทั้ง Manga-theme และ Miku Doujin Theme"
               />
               <HeroChecklist
                 title="Companion สำหรับระบบหลังบ้าน"
@@ -152,7 +158,7 @@ export function WordPressToolkitOverview() {
         <SectionHeader
           eyebrow="Required Toolkit"
           title="แพ็กเกจที่ต้องติดตั้งร่วมกันบน WordPress"
-          description="หน้าใหม่นี้ทำให้ชัดเจนตั้งแต่แรกว่า integration นี้ไม่ใช่ปลั๊กอินตัวเดียวจบ แต่เป็นชุดเครื่องมือ 2 ส่วนที่เสริมกัน"
+          description="แยกให้ชัดระหว่างคลัง Theme ที่เลือกใช้ได้หลายแบบ กับ Companion Plugin ที่เป็น backend integration หลักของระบบ"
         />
         <div className="grid gap-4 xl:grid-cols-2">
           {toolkitPackages.map((pkg) => {
@@ -176,7 +182,9 @@ export function WordPressToolkitOverview() {
                       </div>
                     </div>
                     <div className="rounded-2xl border border-border/70 bg-secondary/60 px-3 py-2 text-right text-sm">
-                      <p className="font-medium text-foreground">ZIP {pkg.packageVersion}</p>
+                      <p className="font-medium text-foreground">
+                        {pkg.id === "theme" ? pkg.packageVersion : `ZIP ${pkg.packageVersion}`}
+                      </p>
                       {pkg.sourceVersion ? (
                         <p className="text-xs text-muted-foreground">source header {pkg.sourceVersion}</p>
                       ) : null}
@@ -192,6 +200,25 @@ export function WordPressToolkitOverview() {
                     <InfoPill title="ลำดับติดตั้ง" value={pkg.installOrder} />
                   </div>
 
+                  {pkg.id === "theme" ? (
+                    <div className="rounded-2xl border border-border/70 bg-secondary/30 p-4">
+                      <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                        Theme ที่พร้อมให้ดาวน์โหลด
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {themeDownloads.map((theme) => (
+                          <Badge
+                            key={theme.id}
+                            variant="outline"
+                            className="border-emerald-500/20 bg-emerald-500/10 text-emerald-100"
+                          >
+                            {theme.name} · ZIP {theme.packageVersion}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
                   <div className="space-y-3">
                     {pkg.highlights.map((item) => (
                       <div key={item} className="flex items-start gap-2 text-sm text-muted-foreground">
@@ -202,12 +229,21 @@ export function WordPressToolkitOverview() {
                   </div>
 
                   <div className="flex flex-wrap gap-3">
-                    <Button asChild className="rounded-full">
-                      <a href={pkg.href} download>
-                        ดาวน์โหลด ZIP
-                        <Download className="h-4 w-4" />
-                      </a>
-                    </Button>
+                    {pkg.id === "theme" ? (
+                      <Button asChild className="rounded-full">
+                        <a href="#theme-downloads">
+                          เลือก Theme ที่ต้องการ
+                          <ArrowRight className="h-4 w-4" />
+                        </a>
+                      </Button>
+                    ) : (
+                      <Button asChild className="rounded-full">
+                        <a href={pkg.href} download>
+                          ดาวน์โหลด ZIP
+                          <Download className="h-4 w-4" />
+                        </a>
+                      </Button>
+                    )}
                     <Button asChild variant="outline" className="rounded-full">
                       <Link href={`/admin/wp-plugin/docs#${pkg.id === "theme" ? "theme-behavior" : "configuration"}`}>
                         อ่านคู่มือส่วนนี้
@@ -219,6 +255,86 @@ export function WordPressToolkitOverview() {
               </Card>
             );
           })}
+        </div>
+      </section>
+
+      <section id="theme-downloads" className="scroll-mt-24 space-y-4">
+        <SectionHeader
+          eyebrow="Theme Downloads"
+          title="เลือกดาวน์โหลด Theme ที่ต้องการใช้งาน"
+          description="แต่ละธีมมี ZIP ของตัวเองและใช้ Comic Reader Companion ร่วมกันได้ เลือกจากภาพพรีวิวด้านล่างให้ตรงกับแนวเว็บไซต์ก่อนติดตั้ง"
+        />
+        <div className="grid gap-5 xl:grid-cols-2">
+          {themeDownloads.map((theme) => (
+            <Card
+              key={theme.id}
+              className="overflow-hidden border-border/70 bg-card/80 shadow-lg shadow-black/10"
+            >
+              <div className="relative aspect-[16/9] overflow-hidden border-b border-border/70 bg-zinc-950">
+                <Image
+                  src={theme.previewSrc}
+                  alt={theme.previewAlt}
+                  width={1600}
+                  height={900}
+                  className="h-full w-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                <div className="absolute left-5 top-5 flex flex-wrap gap-2">
+                  <Badge className="border-white/10 bg-black/45 text-white hover:bg-black/45">
+                    {theme.shortLabel}
+                  </Badge>
+                  <Badge variant="outline" className="border-white/20 bg-black/20 text-zinc-100">
+                    ZIP {theme.packageVersion}
+                  </Badge>
+                </div>
+                <div className="absolute inset-x-5 bottom-5">
+                  <p className="text-xl font-semibold text-white">{theme.name}</p>
+                  <p className="mt-1 text-sm leading-6 text-zinc-200">{theme.inspiredBy}</p>
+                </div>
+              </div>
+              <CardHeader className="space-y-3 pb-4">
+                <CardTitle className="text-2xl">{theme.name}</CardTitle>
+                <CardDescription className="text-sm leading-7 text-muted-foreground">
+                  {theme.description}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="grid gap-3 lg:grid-cols-2">
+                  <InfoPill title="เหมาะกับ" value={theme.recommendedFor} />
+                  <InfoPill title="ลำดับติดตั้ง" value={theme.installOrder} />
+                </div>
+
+                <div className="rounded-2xl border border-border/70 bg-secondary/30 p-4">
+                  <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">บทบาทของธีมนี้</p>
+                  <p className="mt-2 text-sm leading-7 text-foreground">{theme.role}</p>
+                </div>
+
+                <div className="space-y-3">
+                  {theme.highlights.map((item) => (
+                    <div key={item} className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <Button asChild className="rounded-full">
+                    <a href={theme.href} download>
+                      ดาวน์โหลด Theme ZIP
+                      <Download className="h-4 w-4" />
+                    </a>
+                  </Button>
+                  <Button asChild variant="outline" className="rounded-full">
+                    <Link href="/admin/wp-plugin/docs#theme-behavior">
+                      ดูคู่มือ Theme
+                      <FileText className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </section>
 

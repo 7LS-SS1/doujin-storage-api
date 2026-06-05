@@ -47,7 +47,7 @@ export default function AuditLogsPage() {
               <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No audit logs</TableCell></TableRow>
             ) : (
               logs.map((log: Record<string, unknown>) => (
-                <TableRow key={log.id as number} className="border-border">
+                <TableRow key={String(log.id)} className="border-border">
                   <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                     {new Date(log.created_at as string).toLocaleString()}
                   </TableCell>
@@ -58,7 +58,10 @@ export default function AuditLogsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {log.entity_type ? `${log.entity_type}#${log.entity_id}` : "-"}
+                    {(log.entity as string) ||
+                      (log.entity_type
+                        ? `${log.entity_type}#${log.entity_id ?? "?"}`
+                        : "-")}
                   </TableCell>
                   <TableCell className="max-w-xs truncate text-xs text-muted-foreground">
                     {log.details ? JSON.stringify(log.details) : "-"}

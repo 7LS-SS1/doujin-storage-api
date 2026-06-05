@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { requireApiKey } from "@/lib/public-guard";
+import {
+  comicsHaveTypeColumn,
+  resolveComicVisibility,
+} from "@/lib/comic-scope";
 
 export const dynamic = 'force-dynamic';
 
@@ -8,16 +12,36 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  const { error } = await requireApiKey(request);
+  const { error, client } = await requireApiKey(request);
   if (error) return error;
 
   const { slug } = await params;
+  const { searchParams } = new URL(request.url);
+  const requestedComicType =
+    searchParams.get("comicType") || searchParams.get("type") || "";
+  const hasComicTypeColumn = await comicsHaveTypeColumn();
+  const visibility = hasComicTypeColumn
+    ? resolveComicVisibility(client.scope, requestedComicType)
+    : "all";
 
-  const rows = await sql`
-    SELECT c.*, s.title as series_title, s.slug as series_slug
-    FROM comics c LEFT JOIN series s ON c.series_id = s.id
-    WHERE c.slug = ${slug}
-  `;
+  if (visibility === "none") {
+    return NextResponse.json({ error: "Comic not found" }, { status: 404 });
+  }
+
+  const comicTypeFilter = visibility === "all" ? "" : visibility;
+
+  const rows = hasComicTypeColumn
+    ? await sql`
+        SELECT c.*, s.title as series_title, s.slug as series_slug
+        FROM comics c LEFT JOIN series s ON c.series_id = s.id
+        WHERE c.slug = ${slug}
+          AND (${comicTypeFilter} = '' OR c.comic_type = ${comicTypeFilter})
+      `
+    : await sql`
+        SELECT c.*, s.title as series_title, s.slug as series_slug
+        FROM comics c LEFT JOIN series s ON c.series_id = s.id
+        WHERE c.slug = ${slug}
+      `;
 
   if (rows.length === 0) {
     return NextResponse.json({ error: "Comic not found" }, { status: 404 });
@@ -40,11 +64,19 @@ export async function GET(
 
   let relatedComicsInSeries: Record<string, unknown>[] = [];
   if (comic.series_id) {
-    relatedComicsInSeries = await sql`
-      SELECT id, slug, title, cover_image_url, status FROM comics
-      WHERE series_id = ${comic.series_id} AND id != ${comic.id}
-      ORDER BY title LIMIT 10
-    `;
+    relatedComicsInSeries = hasComicTypeColumn
+      ? await sql`
+          SELECT id, slug, title, comic_type, cover_image_url, status FROM comics
+          WHERE series_id = ${comic.series_id}
+            AND id != ${comic.id}
+            AND (${comicTypeFilter} = '' OR comic_type = ${comicTypeFilter})
+          ORDER BY title LIMIT 10
+        `
+      : await sql`
+          SELECT id, slug, title, cover_image_url, status FROM comics
+          WHERE series_id = ${comic.series_id} AND id != ${comic.id}
+          ORDER BY title LIMIT 10
+        `;
   }
 
   return NextResponse.json({

@@ -9,6 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
@@ -24,6 +31,7 @@ export default function ApiKeysPage() {
   const { data, mutate, isLoading } = useSWR("/api/admin/api-keys", fetcher);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState("");
+  const [scope, setScope] = useState("all");
   const [newKey, setNewKey] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string | number;
@@ -35,7 +43,7 @@ export default function ApiKeysPage() {
     const res = await fetch("/api/admin/api-keys", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, scope }),
     });
     if (res.ok) {
       const data = await res.json();
@@ -47,14 +55,30 @@ export default function ApiKeysPage() {
     }
   }
 
-  async function toggleActive(id: string | number, currentActive: boolean) {
-    await fetch(`/api/admin/api-keys/${id}`, {
+  async function updateKey(
+    id: string | number,
+    payload: { isActive?: boolean; scope?: string },
+    successMessage: string
+  ) {
+    const res = await fetch(`/api/admin/api-keys/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isActive: !currentActive }),
+      body: JSON.stringify(payload),
     });
-    toast.success(currentActive ? "Key revoked" : "Key activated");
-    mutate();
+    if (res.ok) {
+      toast.success(successMessage);
+      mutate();
+    } else {
+      toast.error("Failed to update key");
+    }
+  }
+
+  async function toggleActive(id: string | number, currentActive: boolean) {
+    await updateKey(
+      id,
+      { isActive: !currentActive },
+      currentActive ? "Key revoked" : "Key activated"
+    );
   }
 
   async function handleDelete(id: string | number) {
@@ -78,7 +102,7 @@ export default function ApiKeysPage() {
           <h2 className="text-xl font-semibold text-foreground">API Keys</h2>
           <p className="text-sm text-muted-foreground">Manage WordPress client access keys</p>
         </div>
-        <Button onClick={() => { setName(""); setNewKey(null); setDialogOpen(true); }}>
+        <Button onClick={() => { setName(""); setScope("all"); setNewKey(null); setDialogOpen(true); }}>
           <Plus className="mr-2 h-4 w-4" />Add Key
         </Button>
       </div>
@@ -89,6 +113,7 @@ export default function ApiKeysPage() {
             <TableRow className="border-border hover:bg-transparent">
               <TableHead className="text-muted-foreground">Name</TableHead>
               <TableHead className="text-muted-foreground">Prefix</TableHead>
+              <TableHead className="text-muted-foreground">Scope</TableHead>
               <TableHead className="text-muted-foreground">Status</TableHead>
               <TableHead className="text-muted-foreground">Last Used</TableHead>
               <TableHead className="text-muted-foreground">Created</TableHead>
@@ -97,14 +122,31 @@ export default function ApiKeysPage() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
             ) : apiKeys.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No API keys</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">No API keys</TableCell></TableRow>
             ) : (
               apiKeys.map((k: Record<string, unknown>) => (
                 <TableRow key={String(k.id)} className="border-border">
                   <TableCell className="font-medium text-foreground">{k.name as string}</TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">{k.key_prefix as string}...</TableCell>
+                  <TableCell className="min-w-[180px]">
+                    <Select
+                      value={(k.scope as string) || "all"}
+                      onValueChange={(value) =>
+                        updateKey(k.id as string, { scope: value }, "Key scope updated")
+                      }
+                    >
+                      <SelectTrigger className="h-8 border-input bg-secondary text-foreground">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="border-border bg-popover">
+                        <SelectItem value="all">All content</SelectItem>
+                        <SelectItem value="manga">Manga only</SelectItem>
+                        <SelectItem value="doujin">Doujin only</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
                   <TableCell>
                     <Badge variant={k.is_active ? "default" : "destructive"}>
                       {k.is_active ? "Active" : "Revoked"}
@@ -170,6 +212,19 @@ export default function ApiKeysPage() {
               <div className="flex flex-col gap-2">
                 <Label className="text-foreground">Name</Label>
                 <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. My WordPress Site" required className="border-input bg-secondary text-foreground" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label className="text-foreground">Scope</Label>
+                <Select value={scope} onValueChange={setScope}>
+                  <SelectTrigger className="border-input bg-secondary text-foreground">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="border-border bg-popover">
+                    <SelectItem value="all">All content</SelectItem>
+                    <SelectItem value="manga">Manga only</SelectItem>
+                    <SelectItem value="doujin">Doujin only</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <Button type="submit">Generate Key</Button>
             </form>

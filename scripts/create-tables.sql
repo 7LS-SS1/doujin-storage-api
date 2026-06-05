@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS comics (
   alt_titles JSONB DEFAULT '[]',
   description TEXT,
   author_name VARCHAR(255),
+  comic_type VARCHAR(20) NOT NULL DEFAULT 'manga' CHECK (comic_type IN ('manga', 'doujin')),
   status VARCHAR(50) DEFAULT 'ongoing' CHECK (status IN ('ongoing', 'completed', 'hiatus')),
   is_one_shot BOOLEAN NOT NULL DEFAULT FALSE,
   cover_image_url TEXT,
@@ -84,6 +85,7 @@ CREATE TABLE IF NOT EXISTS api_keys (
   name VARCHAR(255) NOT NULL,
   key_hash VARCHAR(255) NOT NULL,
   key_prefix VARCHAR(10) NOT NULL,
+  scope VARCHAR(20) NOT NULL DEFAULT 'all' CHECK (scope IN ('all', 'manga', 'doujin')),
   is_active BOOLEAN DEFAULT TRUE,
   last_used_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -153,6 +155,7 @@ CREATE TABLE IF NOT EXISTS comic_likes (
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_comics_slug ON comics(slug);
+CREATE INDEX IF NOT EXISTS idx_comics_comic_type ON comics(comic_type);
 CREATE INDEX IF NOT EXISTS idx_comics_series_id ON comics(series_id);
 CREATE INDEX IF NOT EXISTS idx_comics_status ON comics(status);
 CREATE INDEX IF NOT EXISTS idx_chapters_comic_id ON chapters(comic_id);

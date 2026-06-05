@@ -117,6 +117,9 @@ export default function ComicDetailPage({
             )}
             <div className="mt-4 flex flex-col gap-2">
               <div className="flex items-center gap-2">
+                <Badge variant="outline">
+                  {comic.comic_type === "doujin" ? "Doujin" : "Manga"}
+                </Badge>
                 <Badge>{comic.status}</Badge>
                 {comic.series_title && (
                   <Badge variant="outline">{comic.series_title}</Badge>

@@ -21,8 +21,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -39,6 +37,7 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export default function ComicsPage() {
   const [search, setSearch] = useState("");
+  const [comicType, setComicType] = useState("all");
   const [page, setPage] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{
@@ -47,7 +46,7 @@ export default function ComicsPage() {
   } | null>(null);
 
   const { data, mutate, isLoading } = useSWR(
-    `/api/admin/comics?search=${encodeURIComponent(search)}&page=${page}&pageSize=20`,
+    `/api/admin/comics?search=${encodeURIComponent(search)}&comicType=${encodeURIComponent(comicType)}&page=${page}&pageSize=20`,
     fetcher
   );
 
@@ -98,17 +97,35 @@ export default function ComicsPage() {
         </Dialog>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="ค้นหาคอมมิค..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px]">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="ค้นหาคอมมิค..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            className="border-input bg-secondary pl-9 text-foreground"
+          />
+        </div>
+        <Select
+          value={comicType}
+          onValueChange={(value) => {
+            setComicType(value);
             setPage(1);
           }}
-          className="border-input bg-secondary pl-9 text-foreground"
-        />
+        >
+          <SelectTrigger className="border-input bg-secondary text-foreground">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="border-border bg-popover">
+            <SelectItem value="all">ทุกประเภท</SelectItem>
+            <SelectItem value="manga">Manga</SelectItem>
+            <SelectItem value="doujin">Doujin</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-border">
@@ -117,6 +134,7 @@ export default function ComicsPage() {
             <TableRow className="border-border hover:bg-transparent">
               <TableHead className="text-muted-foreground">ปก</TableHead>
               <TableHead className="text-muted-foreground">ชื่อเรื่อง</TableHead>
+              <TableHead className="text-muted-foreground">ประเภท</TableHead>
               <TableHead className="text-muted-foreground">สถานะ</TableHead>
               <TableHead className="text-muted-foreground">ผู้แต่ง</TableHead>
               <TableHead className="text-muted-foreground">ซีรีส์</TableHead>
@@ -126,13 +144,13 @@ export default function ComicsPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                   กำลังโหลด...
                 </TableCell>
               </TableRow>
             ) : comics.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                   ไม่พบคอมมิค
                 </TableCell>
               </TableRow>
@@ -161,6 +179,11 @@ export default function ComicsPage() {
                       {comic.title as string}
                     </Link>
                     <p className="text-xs text-muted-foreground">{comic.slug as string}</p>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-xs">
+                      {comic.comic_type === "doujin" ? "Doujin" : "Manga"}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     <Badge

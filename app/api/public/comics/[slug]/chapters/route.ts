@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { requireApiKey } from "@/lib/public-guard";
+import {
+  comicsHaveTypeColumn,
+  resolveComicVisibility,
+} from "@/lib/comic-scope";
 
 export const dynamic = 'force-dynamic';
 
@@ -8,16 +12,34 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  const { error } = await requireApiKey(request);
+  const { error, client } = await requireApiKey(request);
   if (error) return error;
 
   const { slug } = await params;
   const { searchParams } = new URL(request.url);
+  const requestedComicType =
+    searchParams.get("comicType") || searchParams.get("type") || "";
   const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
   const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get("pageSize") || "50")));
   const offset = (page - 1) * pageSize;
+  const hasComicTypeColumn = await comicsHaveTypeColumn();
+  const visibility = hasComicTypeColumn
+    ? resolveComicVisibility(client.scope, requestedComicType)
+    : "all";
 
-  const comic = await sql`SELECT id FROM comics WHERE slug = ${slug}`;
+  if (visibility === "none") {
+    return NextResponse.json({ error: "Comic not found" }, { status: 404 });
+  }
+
+  const comicTypeFilter = visibility === "all" ? "" : visibility;
+  const comic = hasComicTypeColumn
+    ? await sql`
+        SELECT id FROM comics
+        WHERE slug = ${slug}
+          AND (${comicTypeFilter} = '' OR comic_type = ${comicTypeFilter})
+      `
+    : await sql`SELECT id FROM comics WHERE slug = ${slug}`;
+
   if (comic.length === 0) {
     return NextResponse.json({ error: "Comic not found" }, { status: 404 });
   }

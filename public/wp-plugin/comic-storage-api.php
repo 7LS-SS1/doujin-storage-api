@@ -3,7 +3,7 @@
  * Plugin Name: Comic Storage API
  * Plugin URI: https://github.com/your-org/comic-storage-api
  * Description: Integrates with the Comic Storage API to display comics, chapters, and images on your WordPress site. Supports taxonomy sync and chapter reader.
- * Version: 1.2.0
+ * Version: 1.3.0
  * Author: Comic Storage Team
  * License: GPL v2 or later
  * Text Domain: comic-storage-api
@@ -27,6 +27,7 @@ add_action('admin_menu', function () {
 add_action('admin_init', function () {
     register_setting('csa_options_group', 'csa_api_base_url');
     register_setting('csa_options_group', 'csa_api_key');
+    register_setting('csa_options_group', 'csa_content_scope', 'csa_sanitize_content_scope');
 
     add_settings_section('csa_main', 'API Configuration', null, 'comic-storage-api');
 
@@ -41,7 +42,26 @@ add_action('admin_init', function () {
         echo "<input type='text' name='csa_api_key' value='{$val}' class='regular-text' placeholder='csa_...' />";
         echo '<p class="description">Your API key from the admin dashboard.</p>';
     }, 'comic-storage-api', 'csa_main');
+
+    add_settings_field('csa_content_scope', 'Content Scope', function () {
+        $val = esc_attr(csa_content_scope());
+        echo "<select name='csa_content_scope' class='regular-text'>";
+        echo "<option value='all'" . selected($val, 'all', false) . '>All content</option>';
+        echo "<option value='manga'" . selected($val, 'manga', false) . '>Manga only</option>';
+        echo "<option value='doujin'" . selected($val, 'doujin', false) . '>Doujin only</option>';
+        echo '</select>';
+        echo '<p class="description">Force this WordPress site to request only the selected comic type.</p>';
+    }, 'comic-storage-api', 'csa_main');
 });
+
+function csa_sanitize_content_scope($value) {
+    $scope = strtolower(sanitize_text_field((string) $value));
+    return in_array($scope, ['all', 'manga', 'doujin'], true) ? $scope : 'all';
+}
+
+function csa_content_scope() {
+    return csa_sanitize_content_scope(get_option('csa_content_scope', 'all'));
+}
 
 function csa_settings_page() {
     ?>
@@ -90,8 +110,24 @@ function csa_settings_page() {
 function csa_api_request($endpoint, $params = [], $method = 'GET', $body = null) {
     $base = rtrim(get_option('csa_api_base_url', ''), '/');
     $key  = get_option('csa_api_key', '');
+    $scope = csa_content_scope();
 
     if (empty($base) || empty($key)) return new WP_Error('csa_config', 'Comic Storage API is not configured.');
+
+    if ($scope !== 'all') {
+        if (strtoupper($method) === 'GET') {
+            if (empty($params['comicType'])) {
+                $params['comicType'] = $scope;
+            }
+        } else {
+            if ($body === null) {
+                $body = [];
+            }
+            if (is_array($body) && empty($body['comicType'])) {
+                $body['comicType'] = $scope;
+            }
+        }
+    }
 
     $url = $base . '/api/public' . $endpoint;
     if (!empty($params) && strtoupper($method) === 'GET') $url .= '?' . http_build_query($params);

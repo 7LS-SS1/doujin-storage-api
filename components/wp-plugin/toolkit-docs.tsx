@@ -33,12 +33,22 @@ import {
   quickSetupSteps,
   requirements,
   routePatterns,
+  themeDownloads,
   toolkitPackages,
   troubleshootingItems,
   versionNote,
 } from "@/components/wp-plugin/content";
 
 export function WordPressToolkitDocs() {
+  const themePackage = toolkitPackages.find((pkg) => pkg.id === "theme");
+  const companionPackage = toolkitPackages.find((pkg) => pkg.id === "companion");
+  const themeNames = themeDownloads
+    .map((theme) => `${theme.name} ${theme.packageVersion}`)
+    .join(" / ");
+  const themeSourceVersions = Array.from(
+    new Set(themeDownloads.map((theme) => theme.sourceVersion ?? theme.packageVersion)),
+  ).join(", ");
+
   return (
     <div className="space-y-6">
       <section className="rounded-[28px] border border-border/80 bg-[radial-gradient(circle_at_top_left,rgba(34,197,94,0.12),transparent_30%),linear-gradient(135deg,rgba(12,18,16,0.98),rgba(15,18,24,0.98))] p-6 shadow-xl shadow-black/20 lg:p-8">
@@ -62,12 +72,14 @@ export function WordPressToolkitDocs() {
                 กลับหน้า Plugin
               </Link>
             </Button>
-            <Button asChild className="rounded-full bg-emerald-400 text-zinc-950 hover:bg-emerald-300">
-              <a href={toolkitPackages[1].href} download>
-                ดาวน์โหลด Companion ZIP
-                <Download className="h-4 w-4" />
-              </a>
-            </Button>
+            {companionPackage ? (
+              <Button asChild className="rounded-full bg-emerald-400 text-zinc-950 hover:bg-emerald-300">
+                <a href={companionPackage.href} download>
+                  ดาวน์โหลด Companion ZIP
+                  <Download className="h-4 w-4" />
+                </a>
+              </Button>
+            ) : null}
           </div>
         </div>
       </section>
@@ -96,24 +108,44 @@ export function WordPressToolkitDocs() {
           <Card className="border-emerald-500/20 bg-emerald-500/5">
             <CardHeader className="pb-4">
               <CardTitle className="text-lg">ดาวน์โหลดไฟล์ที่ต้องใช้</CardTitle>
+              <CardDescription>เลือก 1 Theme จากนั้นติดตั้ง Companion เพิ่มอีก 1 ตัว</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {toolkitPackages.map((pkg) => (
+              {themeDownloads.map((theme) => (
                 <Button
-                  key={pkg.id}
+                  key={theme.id}
                   asChild
                   variant="outline"
                   className="h-auto w-full justify-between rounded-2xl border-border/80 bg-background/60 px-4 py-3 text-left"
                 >
-                  <a href={pkg.href} download>
+                  <a href={theme.href} download>
                     <span>
-                      <span className="block text-sm font-medium">{pkg.name}</span>
-                      <span className="block text-xs text-muted-foreground">ZIP {pkg.packageVersion}</span>
+                      <span className="block text-sm font-medium">{theme.name}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        Theme ZIP {theme.packageVersion}
+                      </span>
                     </span>
                     <Download className="h-4 w-4 shrink-0" />
                   </a>
                 </Button>
               ))}
+              {companionPackage ? (
+                <Button
+                  asChild
+                  variant="outline"
+                  className="h-auto w-full justify-between rounded-2xl border-border/80 bg-background/60 px-4 py-3 text-left"
+                >
+                  <a href={companionPackage.href} download>
+                    <span>
+                      <span className="block text-sm font-medium">{companionPackage.name}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        Companion ZIP {companionPackage.packageVersion}
+                      </span>
+                    </span>
+                    <Download className="h-4 w-4 shrink-0" />
+                  </a>
+                </Button>
+              ) : null}
             </CardContent>
           </Card>
         </aside>
@@ -136,7 +168,7 @@ export function WordPressToolkitDocs() {
                     ที่ออกแบบมาสำหรับ reader UX โดยเฉพาะ
                   </p>
                   <p>
-                    Companion Plugin เป็นตัวเชื่อมระบบหลังบ้าน ส่วน Comic Reader Theme
+                    Companion Plugin เป็นตัวเชื่อมระบบหลังบ้าน ส่วน Theme Library
                     รับผิดชอบประสบการณ์ฝั่งผู้ใช้ปลายทาง เช่นหน้าโฮม, archive, comic detail และ chapter reader
                   </p>
                 </CardContent>
@@ -191,10 +223,27 @@ export function WordPressToolkitDocs() {
                   <CardTitle className="text-xl">แพ็กเกจที่ใช้จริง</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm text-muted-foreground">
-                  <InfoRow label="Theme package" value="Comic Reader Theme 1.0.1" />
-                  <InfoRow label="Companion package" value="Comic Reader Companion 2.0.1" />
-                  <InfoRow label="Theme source header" value="1.0.1" />
-                  <InfoRow label="Companion source header" value="2.0.0" />
+                  <InfoRow
+                    label="Theme options"
+                    value={themeNames || "Manga-theme / Miku Doujin Theme"}
+                  />
+                  <InfoRow
+                    label="Companion package"
+                    value={
+                      companionPackage
+                        ? `${companionPackage.name} ${companionPackage.packageVersion}`
+                        : "Comic Reader Companion"
+                    }
+                  />
+                  <InfoRow
+                    label="Theme library"
+                    value={themePackage ? `${themePackage.name} (${themePackage.packageVersion})` : "Theme Library"}
+                  />
+                  <InfoRow label="Theme source headers" value={themeSourceVersions || "1.0.0"} />
+                  <InfoRow
+                    label="Companion source header"
+                    value={companionPackage?.sourceVersion ?? companionPackage?.packageVersion ?? "2.1.1"}
+                  />
                 </CardContent>
               </Card>
             </div>

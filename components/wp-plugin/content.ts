@@ -11,6 +11,23 @@ export type ToolkitPackage = {
   highlights: string[];
 };
 
+export type ThemeDownload = {
+  id: "manga-theme" | "miku-doujin-theme";
+  name: string;
+  shortLabel: string;
+  packageVersion: string;
+  sourceVersion?: string;
+  href: string;
+  previewSrc: string;
+  previewAlt: string;
+  inspiredBy: string;
+  recommendedFor: string;
+  installOrder: string;
+  role: string;
+  description: string;
+  highlights: string[];
+};
+
 export type ContentCard = {
   title: string;
   description: string;
@@ -48,55 +65,104 @@ export type QAItem = {
 export const toolkitPackages: ToolkitPackage[] = [
   {
     id: "theme",
-    name: "Comic Reader Theme",
-    shortLabel: "Theme สำหรับหน้าบ้าน",
-    packageVersion: "1.0.1",
-    href: "/downloads/comic-reader-theme-1.0.1.zip",
-    installOrder: "ติดตั้งคู่กับ Companion Plugin",
-    role: "ควบคุม UX/UI ของหน้าโฮม, archive, comic detail และ chapter reader",
+    name: "Theme Library",
+    shortLabel: "เลือก 1 Theme ให้ตรงกับแนวเว็บ",
+    packageVersion: "2 themes",
+    href: "#theme-downloads",
+    installOrder: "เลือก 1 ตัวก่อน แล้วค่อยติดตั้งคู่กับ Companion Plugin",
+    role: "รวมชุดธีมหน้าบ้านสำหรับ WordPress เพื่อให้เลือก layout ที่ตรงกับเว็บ Manga หรือ Doujin โดยยังใช้ระบบ sync/routing ชุดเดียวกัน",
     description:
-      "ธีมฝั่งหน้าบ้านสำหรับ WordPress ที่จัดเลย์เอาต์ reader, hero homepage, แถวรายการคอมมิค และหน้ารายละเอียดให้อ่านง่ายทั้งมือถือและเดสก์ท็อป",
+      "ชุดธีมที่ออกแบบมาสำหรับ Comic Storage API บน WordPress โดยแยกแพ็กเกจดาวน์โหลดตามแนวเว็บที่ต้องการ เช่น manga portal หรือ doujin catalog พร้อมภาพพรีวิวให้เลือกจากหน้าแอดมินได้ทันที",
     highlights: [
-      "Homepage แบบ hero + content rows",
-      "Archive และ comic detail พร้อม metadata",
-      "Chapter reader แบบ scroll และ paged mode",
-      "ออกแบบมาให้ทำงานกับ rewrite/template ของ Companion",
+      "มีทั้ง Manga-theme และ Miku Doujin Theme ให้เลือกตามสไตล์เว็บ",
+      "แต่ละธีมมี ZIP แยกของตัวเองและใช้ Companion ร่วมกันได้",
+      "ธีมทุกตัวออกแบบให้ทำงานกับ rewrite/template ของ Companion และ Content Scope",
+      "หน้าแอดมินแสดงภาพพรีวิวเพื่อช่วยตัดสินใจก่อนดาวน์โหลด",
     ],
   },
   {
     id: "companion",
     name: "Comic Reader Companion",
     shortLabel: "Companion Plugin สำหรับเชื่อม API และ Sync ข้อมูล",
-    packageVersion: "2.0.1",
-    sourceVersion: "2.0.0",
-    href: "/downloads/comic-reader-companion-2.0.1.zip",
+    packageVersion: "2.1.1",
+    sourceVersion: "2.1.1",
+    href: "/downloads/comic-reader-companion-2.1.1.zip",
     installOrder: "ติดตั้งและตั้งค่าหลังเปิดใช้ Theme",
     role: "เชื่อม Comic Storage API เข้ากับ WordPress, sync ข้อมูล และจัดการ routing/admin tools",
     description:
       "ปลั๊กอินที่ดูแลงาน backend integration ทั้งการตั้งค่า API Base URL, API Key, sync ข้อมูลเข้า CPT/taxonomy, rewrite routes, caching และ cron dashboard",
     highlights: [
-      "Settings: API Base URL, API Key, Cache TTL, Slug Base, Log Errors",
+      "Settings: API Base URL, API Key, Content Scope, Cache TTL, Slug Base, Log Errors",
       "AJAX Test Connection และ Flush Cache",
       "Incremental Sync ทุก 10 นาที และ Full Sync รายวัน",
+      "แยกเว็บ Manga-only หรือ Doujin-only ได้จาก Content Scope + API Key scope",
+      "แจ้งเตือนเมื่อ scope ไม่ตรงกันจน Full Sync ได้ 0 รายการ",
       "สร้าง crc_comic, crc_chapter และ taxonomy ที่เกี่ยวข้อง",
+    ],
+  },
+];
+
+export const themeDownloads: ThemeDownload[] = [
+  {
+    id: "manga-theme",
+    name: "Manga-theme",
+    shortLabel: "Manga Portal",
+    packageVersion: "1.0.0",
+    sourceVersion: "1.0.0",
+    href: "/downloads/manga-theme-1.0.0.zip",
+    previewSrc: "/theme-previews/manga-theme-preview.svg",
+    previewAlt: "Preview card for Manga-theme showing a manga portal style homepage",
+    inspiredBy: "Inspired by niceoppai.net",
+    recommendedFor: "เหมาะกับเว็บ Manga-only หรือเว็บอ่านมังงะที่ต้องการหน้าโฮมแบบ portal + chapter feed",
+    installOrder: "ติดตั้งเป็น theme หลักก่อนเปิดใช้ Companion Plugin",
+    role: "ควบคุม UX/UI ของหน้าโฮม, archive, comic detail และ chapter reader ในทรงเว็บมังงะแบบ tabbed portal + chapter feed",
+    description:
+      "ธีมฝั่งหน้าบ้านสำหรับ WordPress ที่อ้างอิงภาพรวมจาก niceoppai.net โดยเน้น top navigation แบบแท็บ, featured manga cards, รายการอัปเดตแต่ละตอน และ detail page สไตล์ manga portal คลาสสิก",
+    highlights: [
+      "Homepage แบบ featured strip + updated chapter feed + sidebar boxes",
+      "Archive และ comic detail โทน light panel บน dark frame",
+      "Chapter reader แบบ dark portal พร้อม top bar และ chapter navigation",
+      "เหมาะกับการจับคู่กับ Content Scope แบบ Manga-only",
+    ],
+  },
+  {
+    id: "miku-doujin-theme",
+    name: "Miku Doujin Theme",
+    shortLabel: "Doujin Catalog",
+    packageVersion: "1.0.0",
+    sourceVersion: "1.0.0",
+    href: "/downloads/miku-doujin-theme-1.0.0.zip",
+    previewSrc: "/theme-previews/miku-doujin-theme-preview.svg",
+    previewAlt: "Preview card for Miku Doujin Theme showing a doujin catalog style homepage",
+    inspiredBy: "Inspired by miku-doujin.com",
+    recommendedFor: "เหมาะกับเว็บ Doujin-only ที่ต้องการหน้าแคตตาล็อกเข้ม ๆ พร้อม taxonomy sidebar ชัดเจน",
+    installOrder: "ติดตั้งเป็น theme หลักก่อนเปิดใช้ Companion Plugin",
+    role: "ควบคุม UX/UI ของหน้าโฮม, archive, comic detail และ chapter reader ในโทน doujin catalog แบบ dark shelf + taxonomy pills",
+    description:
+      "ธีมฝั่งหน้าบ้านสำหรับ WordPress ที่อ้างอิงภาพรวมจาก miku-doujin.com โดยเน้น top bar เข้ม, card rail, taxonomy sidebar และหน้า reader ที่ให้ความรู้สึกเว็บ doujin แบบแน่นตา",
+    highlights: [
+      "Homepage แบบ dark showcase พร้อม card rail และ section title แนว catalog",
+      "Archive / comic detail แบบ main + sidebar พร้อม taxonomy pills",
+      "Chapter reader โทนมืดสำหรับเว็บ doujin โดยเฉพาะ",
+      "เหมาะกับการจับคู่กับ Content Scope แบบ Doujin-only",
     ],
   },
 ];
 
 export const quickSetupSteps: SetupStep[] = [
   {
-    title: "ติดตั้ง 2 แพ็กบน WordPress",
+    title: "เลือก Theme 1 ตัว แล้วติดตั้งคู่กับ Companion",
     description:
-      "อัปโหลดและเปิดใช้ Comic Reader Theme กับ Comic Reader Companion ให้ครบทั้งคู่",
+      "ดาวน์โหลด theme ที่ตรงกับแนวเว็บของคุณ จากนั้นอัปโหลดและเปิดใช้พร้อม Comic Reader Companion",
     detail:
-      "Theme จัดการ UX ฝั่งผู้ชม ส่วน Companion เป็นตัวเชื่อม API และระบบ sync",
+      "Theme จัดการ UX ฝั่งผู้ชม ส่วน Companion เป็นตัวเชื่อม API, routing และระบบ sync",
   },
   {
-    title: "กรอก API Base URL และ API Key",
+    title: "กรอก API Base URL, API Key และ Content Scope",
     description:
       "ไปที่เมนู Comic Reader ใน WordPress แล้วใส่ค่าการเชื่อมต่อจาก Comic Storage API",
     detail:
-      "คำขอทั้งหมดถูกยิงแบบ server-side ผ่าน header X-API-Key ไม่เปิด key ไปฝั่ง browser",
+      "คำขอทั้งหมดถูกยิงแบบ server-side ผ่าน header X-API-Key ไม่เปิด key ไปฝั่ง browser และสามารถบังคับ Manga-only/Doujin-only ได้ที่ระดับเว็บไซต์",
   },
   {
     title: "กด Test Connection ก่อนบันทึกจริง",
@@ -212,6 +278,7 @@ export const featureCards: ContentCard[] = [
 export const useCases = [
   "ทีมที่เก็บคอนเทนต์คอมมิคใน Comic Storage API แต่ต้องการใช้ WordPress เป็นหน้าบ้าน",
   "เว็บอ่านมังงะที่อยากได้ reader UX ชัดเจน พร้อม route ระดับตอนแบบ /ep-{number}/",
+  "เว็บ Doujin-only ที่ต้องการแยกหน้าตาและการดาวน์โหลด theme ออกจากเว็บ Manga อย่างชัดเจน",
   "โปรเจ็กต์ที่ต้องการ sync ข้อมูลเข้า WordPress เพื่อใช้เมนู, SEO plugin และ editor workflow ร่วมกัน",
 ];
 
@@ -296,6 +363,7 @@ export const troubleshootingItems: QAItem[] = [
     answer: [
       "เริ่มจากรัน Incremental Sync แล้วตรวจ counts ใน Sync Dashboard",
       "ถ้ายังไม่มา ให้ลอง Full Sync และดู error log หากเปิด Log Errors ไว้",
+      "ถ้า Test Connection ผ่านแต่ Full Sync ได้ 0 รายการ ให้ตรวจ Content Scope ใน WordPress และ API key scope ใน Comic Storage API ว่าตรงกัน",
       "ตรวจว่าฝั่ง API มีข้อมูลใน /comics และ endpoint ที่เกี่ยวข้องจริง",
     ],
   },
@@ -346,4 +414,4 @@ export const routePatterns = [
 ];
 
 export const versionNote =
-  "แพ็กเกจดาวน์โหลดของ Companion ใช้ชื่อ 2.0.1 แต่ source header ใน repo ปัจจุบันระบุ 2.0.0 จึงยึดไฟล์ ZIP สำหรับการแจกจ่าย และยึดความสามารถตาม source code ปัจจุบันในการอธิบายระบบ";
+  "รีลีสนี้ใช้ Companion 2.1.1 ร่วมกับ Theme Library ที่มีทั้ง Manga-theme 1.0.0 และ Miku Doujin Theme 1.0.0 โดยรองรับ Content Scope สำหรับเว็บ Manga-only/Doujin-only และเพิ่ม warning เมื่อ sync ได้ 0 รายการเพราะ scope ไม่ตรงกัน";

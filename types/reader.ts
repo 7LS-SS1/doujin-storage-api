@@ -6,6 +6,7 @@ export interface Comic {
   id: number;
   slug: string;
   title: string;
+  comic_type?: "manga" | "doujin" | null;
   alt_titles?: string[] | null;
   description?: string | null;
   author_name?: string | null;

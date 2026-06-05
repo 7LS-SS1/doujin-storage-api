@@ -76,6 +76,9 @@ export function ComicForm({ comic, onSuccess }: ComicFormProps) {
   const [authorName, setAuthorName] = useState(
     (comic?.author_name as string) || ""
   );
+  const [comicType, setComicType] = useState<string>(
+    (comic?.comic_type as string) || "manga"
+  );
   const [status, setStatus] = useState<string>(
     (comic?.status as string) || "ongoing"
   );
@@ -185,6 +188,7 @@ export function ComicForm({ comic, onSuccess }: ComicFormProps) {
         slug,
         description: description || null,
         authorName: authorName || null,
+        comicType,
         status,
         seriesId: safeSeriesId,
         categoryIds: normalizedCategoryIds,
@@ -313,6 +317,21 @@ export function ComicForm({ comic, onSuccess }: ComicFormProps) {
           />
         </div>
         <div className="flex flex-col gap-2">
+          <Label className="text-foreground">ประเภท</Label>
+          <Select value={comicType} onValueChange={setComicType}>
+            <SelectTrigger className="border-input bg-secondary text-foreground">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="border-border bg-popover">
+              <SelectItem value="manga">Manga</SelectItem>
+              <SelectItem value="doujin">Doujin</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-2">
           <Label className="text-foreground">สถานะ</Label>
           <Select value={status} onValueChange={setStatus}>
             <SelectTrigger className="border-input bg-secondary text-foreground">
@@ -325,6 +344,7 @@ export function ComicForm({ comic, onSuccess }: ComicFormProps) {
             </SelectContent>
           </Select>
         </div>
+        <div />
       </div>
 
       <div className="flex flex-col gap-2">

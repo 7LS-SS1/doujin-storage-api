@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/admin-guard";
 import { logAudit } from "@/lib/audit";
 import { deleteR2Object } from "@/lib/r2";
 import { getComicsAltTitlesType, tableHasColumn } from "@/lib/db-schema";
+import { COMIC_TYPES } from "@/lib/comic-scope";
 import { z } from "zod";
 
 export const dynamic = 'force-dynamic';
@@ -23,6 +24,7 @@ const updateSchema = z.object({
   altTitles: z.array(z.string()).optional(),
   description: z.string().optional().nullable(),
   authorName: z.string().optional().nullable(),
+  comicType: z.enum(COMIC_TYPES).optional(),
   status: z.enum(["ongoing", "completed", "hiatus"]).optional(),
   coverImageUrl: z.string().optional().nullable(),
   coverObjectKey: z.string().optional().nullable(),
@@ -105,6 +107,7 @@ export async function PUT(
 
     const data = parsed.data;
     const altTitlesType = await getComicsAltTitlesType();
+    const hasComicTypeColumn = await tableHasColumn("comics", "comic_type");
     const altTitlesValue =
       data.altTitles !== undefined
         ? altTitlesType === "text_array"
@@ -123,21 +126,38 @@ export async function PUT(
       try { await deleteR2Object(existing[0].cover_object_key); } catch {}
     }
 
-    const result = await sql`
-      UPDATE comics SET
-        title = COALESCE(${data.title ?? null}, title),
-        slug = COALESCE(${data.slug ?? null}, slug),
-        alt_titles = COALESCE(${altTitlesValue}, alt_titles),
-        description = ${data.description !== undefined ? data.description : existing[0].description},
-        author_name = ${data.authorName !== undefined ? data.authorName : existing[0].author_name},
-        status = COALESCE(${data.status ?? null}, status),
-        cover_image_url = ${data.coverImageUrl !== undefined ? data.coverImageUrl : existing[0].cover_image_url},
-        cover_object_key = ${data.coverObjectKey !== undefined ? data.coverObjectKey : existing[0].cover_object_key},
-        series_id = ${data.seriesId !== undefined ? data.seriesId : existing[0].series_id},
-        updated_at = NOW()
-      WHERE id = ${comicId}
-      RETURNING *
-    `;
+    const result = hasComicTypeColumn
+      ? await sql`
+          UPDATE comics SET
+            title = COALESCE(${data.title ?? null}, title),
+            slug = COALESCE(${data.slug ?? null}, slug),
+            alt_titles = COALESCE(${altTitlesValue}, alt_titles),
+            description = ${data.description !== undefined ? data.description : existing[0].description},
+            author_name = ${data.authorName !== undefined ? data.authorName : existing[0].author_name},
+            comic_type = COALESCE(${data.comicType ?? null}, comic_type),
+            status = COALESCE(${data.status ?? null}, status),
+            cover_image_url = ${data.coverImageUrl !== undefined ? data.coverImageUrl : existing[0].cover_image_url},
+            cover_object_key = ${data.coverObjectKey !== undefined ? data.coverObjectKey : existing[0].cover_object_key},
+            series_id = ${data.seriesId !== undefined ? data.seriesId : existing[0].series_id},
+            updated_at = NOW()
+          WHERE id = ${comicId}
+          RETURNING *
+        `
+      : await sql`
+          UPDATE comics SET
+            title = COALESCE(${data.title ?? null}, title),
+            slug = COALESCE(${data.slug ?? null}, slug),
+            alt_titles = COALESCE(${altTitlesValue}, alt_titles),
+            description = ${data.description !== undefined ? data.description : existing[0].description},
+            author_name = ${data.authorName !== undefined ? data.authorName : existing[0].author_name},
+            status = COALESCE(${data.status ?? null}, status),
+            cover_image_url = ${data.coverImageUrl !== undefined ? data.coverImageUrl : existing[0].cover_image_url},
+            cover_object_key = ${data.coverObjectKey !== undefined ? data.coverObjectKey : existing[0].cover_object_key},
+            series_id = ${data.seriesId !== undefined ? data.seriesId : existing[0].series_id},
+            updated_at = NOW()
+          WHERE id = ${comicId}
+          RETURNING *
+        `;
 
     // Update categories if provided
     if (data.categoryIds !== undefined) {
@@ -158,8 +178,9 @@ export async function PUT(
       userEmail: session!.email,
       action: "update_comic",
       entityType: "comic",
-    entityId: comicId,
-  });
+      entityId: comicId,
+      details: data.comicType ? { comicType: data.comicType } : undefined,
+    });
 
     return NextResponse.json(result[0]);
   } catch (err: unknown) {
