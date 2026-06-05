@@ -17,7 +17,7 @@ const REACTIONS: Array<{
 ];
 
 interface ReactionBarProps {
-  comicId: number;
+  comicId: string | number;
 }
 
 type Status = "idle" | "loading" | "error";
@@ -72,7 +72,10 @@ export default function ReactionBar({ comicId }: ReactionBarProps) {
       setStatus("loading");
 
       // Track analytics
-      analytics.track({ event_type: "reaction_click", comic_id: comicId });
+      analytics.track({
+        event_type: "reaction_click",
+        comic_id: typeof comicId === "number" ? comicId : undefined,
+      });
 
       try {
         const res = await fetch("/api/reader/reactions", {

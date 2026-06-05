@@ -1,6 +1,6 @@
 import UpdatesPortalPage from "@/components/reader/reader-portal";
 
-export default async function HomePage({
+export default async function UpdatesPage({
   searchParams,
 }: {
   searchParams?: Promise<{ q?: string }>;

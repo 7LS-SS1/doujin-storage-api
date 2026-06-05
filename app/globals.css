@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-prompt), Arial, Helvetica, sans-serif;
 }
 
 @layer utilities {
@@ -57,4 +57,35 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+.updates-page {
+  position: relative;
+  background:
+    radial-gradient(circle at top center, rgba(176, 9, 20, 0.3), transparent 30%),
+    radial-gradient(circle at 14% 18%, rgba(255, 92, 0, 0.16), transparent 18%),
+    linear-gradient(180deg, #0a0a0b 0%, #101012 18%, #080809 100%);
+}
+
+.updates-page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.2;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 148px 148px;
+}
+
+.updates-page::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.35;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 24%),
+    radial-gradient(circle at bottom left, rgba(255, 92, 0, 0.08), transparent 24%);
 }

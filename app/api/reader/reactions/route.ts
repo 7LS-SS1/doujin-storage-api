@@ -9,10 +9,10 @@ const VALID_REACTIONS = new Set(["like", "love", "heart", "bad"]);
 // Returns { currentReaction, counts }
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const comicId = parseInt(searchParams.get("comic_id") ?? "0");
+  const comicId = (searchParams.get("comic_id") ?? "").trim().slice(0, 100);
   const sessionId = (searchParams.get("session_id") ?? "").slice(0, 100);
 
-  if (!comicId || comicId < 1) {
+  if (!comicId) {
     return NextResponse.json({ error: "Missing comic_id" }, { status: 400 });
   }
 
@@ -55,7 +55,12 @@ export async function POST(request: Request) {
       reaction_type?: unknown;
     };
 
-    const comicId = typeof body.comic_id === "number" ? body.comic_id : 0;
+    const comicId =
+      typeof body.comic_id === "string"
+        ? body.comic_id.trim().slice(0, 100)
+        : typeof body.comic_id === "number"
+        ? String(body.comic_id)
+        : "";
     const sessionId =
       typeof body.session_id === "string" ? body.session_id.slice(0, 100) : "";
     const reactionType =
