@@ -25,13 +25,48 @@ import { Plus, Trash2, Copy, Ban, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+type ApiKey = {
+  id: string | number;
+  name: string;
+  key_prefix: string;
+  is_active: boolean;
+  last_used_at?: string | null;
+  created_at: string;
+  scope: "all" | "manga" | "doujin";
+};
+
+type ApiKeysResponse = {
+  apiKeys: ApiKey[];
+};
+
+const fetcher = async (url: string): Promise<ApiKeysResponse> => {
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error("Failed to load API keys");
+  }
+
+  return response.json();
+};
+
+function mergeUpdatedKey(
+  current: ApiKeysResponse | undefined,
+  updatedKey: ApiKey
+): ApiKeysResponse | undefined {
+  if (!current) return current;
+
+  return {
+    ...current,
+    apiKeys: current.apiKeys.map((key) =>
+      String(key.id) === String(updatedKey.id) ? { ...key, ...updatedKey } : key
+    ),
+  };
+}
 
 export default function ApiKeysPage() {
-  const { data, mutate, isLoading } = useSWR("/api/admin/api-keys", fetcher);
+  const { data, mutate, isLoading } = useSWR<ApiKeysResponse>("/api/admin/api-keys", fetcher);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState("");
-  const [scope, setScope] = useState("all");
+  const [scope, setScope] = useState<ApiKey["scope"]>("all");
   const [newKey, setNewKey] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string | number;
@@ -46,10 +81,15 @@ export default function ApiKeysPage() {
       body: JSON.stringify({ name, scope }),
     });
     if (res.ok) {
-      const data = await res.json();
-      setNewKey(data.key);
+      const { key, ...createdKey } = (await res.json()) as ApiKey & { key: string };
+      setNewKey(key);
       toast.success("API key created");
-      mutate();
+      await mutate(
+        (current) => ({
+          apiKeys: [createdKey, ...(current?.apiKeys ?? [])],
+        }),
+        { revalidate: false }
+      );
     } else {
       toast.error("Failed to create key");
     }
@@ -57,7 +97,7 @@ export default function ApiKeysPage() {
 
   async function updateKey(
     id: string | number,
-    payload: { isActive?: boolean; scope?: string },
+    payload: { isActive?: boolean; scope?: ApiKey["scope"] },
     successMessage: string
   ) {
     const res = await fetch(`/api/admin/api-keys/${id}`, {
@@ -66,8 +106,11 @@ export default function ApiKeysPage() {
       body: JSON.stringify(payload),
     });
     if (res.ok) {
+      const updatedKey = (await res.json()) as ApiKey;
+      await mutate((current) => mergeUpdatedKey(current, updatedKey), {
+        revalidate: false,
+      });
       toast.success(successMessage);
-      mutate();
     } else {
       toast.error("Failed to update key");
     }
@@ -83,7 +126,19 @@ export default function ApiKeysPage() {
 
   async function handleDelete(id: string | number) {
     const res = await fetch(`/api/admin/api-keys/${id}`, { method: "DELETE" });
-    if (res.ok) { toast.success("Key deleted"); mutate(); }
+    if (res.ok) {
+      toast.success("Key deleted");
+      await mutate(
+        (current) =>
+          current
+            ? {
+                ...current,
+                apiKeys: current.apiKeys.filter((key) => String(key.id) !== String(id)),
+              }
+            : current,
+        { revalidate: false }
+      );
+    }
   }
 
   function copyKey() {
@@ -93,7 +148,7 @@ export default function ApiKeysPage() {
     }
   }
 
-  const apiKeys = data?.apiKeys || [];
+  const apiKeys = data?.apiKeys ?? [];
 
   return (
     <div className="flex flex-col gap-6">
@@ -126,15 +181,15 @@ export default function ApiKeysPage() {
             ) : apiKeys.length === 0 ? (
               <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">No API keys</TableCell></TableRow>
             ) : (
-              apiKeys.map((k: Record<string, unknown>) => (
+              apiKeys.map((k) => (
                 <TableRow key={String(k.id)} className="border-border">
-                  <TableCell className="font-medium text-foreground">{k.name as string}</TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{k.key_prefix as string}...</TableCell>
+                  <TableCell className="font-medium text-foreground">{k.name}</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">{k.key_prefix}...</TableCell>
                   <TableCell className="min-w-[180px]">
                     <Select
-                      value={(k.scope as string) || "all"}
+                      value={k.scope}
                       onValueChange={(value) =>
-                        updateKey(k.id as string, { scope: value }, "Key scope updated")
+                        updateKey(k.id, { scope: value as ApiKey["scope"] }, "Key scope updated")
                       }
                     >
                       <SelectTrigger className="h-8 border-input bg-secondary text-foreground">
@@ -153,10 +208,10 @@ export default function ApiKeysPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
-                    {k.last_used_at ? new Date(k.last_used_at as string).toLocaleDateString() : "Never"}
+                    {k.last_used_at ? new Date(k.last_used_at).toLocaleDateString() : "Never"}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
-                    {new Date(k.created_at as string).toLocaleDateString()}
+                    {new Date(k.created_at).toLocaleDateString()}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
@@ -164,7 +219,7 @@ export default function ApiKeysPage() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => toggleActive(k.id as string, k.is_active as boolean)}
+                        onClick={() => toggleActive(k.id, k.is_active)}
                         title={k.is_active ? "Revoke" : "Activate"}
                       >
                         {k.is_active ? <Ban className="h-3.5 w-3.5" /> : <CheckCircle className="h-3.5 w-3.5" />}
@@ -175,8 +230,8 @@ export default function ApiKeysPage() {
                         className="h-8 w-8 text-destructive hover:text-destructive"
                         onClick={() =>
                           setDeleteTarget({
-                            id: k.id as string,
-                            name: k.name as string,
+                            id: k.id,
+                            name: k.name,
                           })
                         }
                       >

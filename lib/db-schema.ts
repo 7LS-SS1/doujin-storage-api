@@ -1,9 +1,14 @@
 import { sql } from "./db";
 
 type AltTitlesType = "jsonb" | "text_array";
+type TableColumnsCacheEntry = {
+  columns: Set<string>;
+  expiresAt: number;
+};
 
 let cachedAltTitlesType: AltTitlesType | null = null;
-const tableColumnsCache = new Map<string, Set<string>>();
+const TABLE_COLUMNS_CACHE_TTL_MS = 30_000;
+const tableColumnsCache = new Map<string, TableColumnsCacheEntry>();
 
 export async function getComicsAltTitlesType(): Promise<AltTitlesType> {
   if (cachedAltTitlesType) return cachedAltTitlesType;
@@ -33,7 +38,9 @@ export async function getComicsAltTitlesType(): Promise<AltTitlesType> {
 
 export async function getTableColumns(tableName: string): Promise<Set<string>> {
   const cached = tableColumnsCache.get(tableName);
-  if (cached) return cached;
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.columns;
+  }
 
   const rows = await sql`
     SELECT column_name
@@ -43,7 +50,10 @@ export async function getTableColumns(tableName: string): Promise<Set<string>> {
   const columns = new Set<string>(
     (rows || []).map((row: { column_name: string }) => row.column_name)
   );
-  tableColumnsCache.set(tableName, columns);
+  tableColumnsCache.set(tableName, {
+    columns,
+    expiresAt: Date.now() + TABLE_COLUMNS_CACHE_TTL_MS,
+  });
   return columns;
 }
 
