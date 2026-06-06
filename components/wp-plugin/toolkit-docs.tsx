@@ -242,7 +242,7 @@ export function WordPressToolkitDocs() {
                   <InfoRow label="Theme source headers" value={themeSourceVersions || "1.0.0"} />
                   <InfoRow
                     label="Companion source header"
-                    value={companionPackage?.sourceVersion ?? companionPackage?.packageVersion ?? "2.1.3"}
+                    value={companionPackage?.sourceVersion ?? companionPackage?.packageVersion ?? "2.1.4"}
                   />
                 </CardContent>
               </Card>
