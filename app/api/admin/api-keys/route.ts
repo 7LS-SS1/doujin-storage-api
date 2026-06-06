@@ -12,6 +12,12 @@ import { z } from "zod";
 
 export const dynamic = 'force-dynamic';
 
+type ApiKeyRow = Record<string, unknown>;
+
+function asRows(rows: unknown): ApiKeyRow[] {
+  return rows as ApiKeyRow[];
+}
+
 const schema = z.object({
   name: z.string().min(1).max(255),
   scope: z.enum(COMIC_SCOPES).default("all"),
@@ -22,7 +28,7 @@ export async function GET() {
   if (error) return error;
 
   const hasScopeColumn = await apiKeysHaveScopeColumn();
-  const rows = hasScopeColumn
+  const rawRows = hasScopeColumn
     ? await sql`
         SELECT id, name, key_prefix, is_active, last_used_at, created_at, scope
         FROM api_keys
@@ -33,8 +39,10 @@ export async function GET() {
         FROM api_keys
         ORDER BY created_at DESC
       `;
+  const rows = asRows(rawRows);
 
   return NextResponse.json({
+    scopePersistenceAvailable: hasScopeColumn,
     apiKeys: rows.map((row) => ({
       ...row,
       scope: normalizeComicScope(row.scope),
@@ -53,7 +61,7 @@ export async function POST(request: Request) {
   const { raw, hash, prefix } = generateApiKey();
   const hasScopeColumn = await apiKeysHaveScopeColumn();
 
-  const result = hasScopeColumn
+  const rawResult = hasScopeColumn
     ? await sql`
         INSERT INTO api_keys (name, key_hash, key_prefix, scope)
         VALUES (${parsed.data.name}, ${hash}, ${prefix}, ${parsed.data.scope})
@@ -64,13 +72,20 @@ export async function POST(request: Request) {
         VALUES (${parsed.data.name}, ${hash}, ${prefix})
         RETURNING id, name, key_prefix, is_active, created_at
       `;
+  const result = asRows(rawResult);
 
-  await logAudit({ userEmail: session!.email, action: "create_api_key", entityType: "api_key", entityId: result[0].id });
+  await logAudit({
+    userEmail: session!.email,
+    action: "create_api_key",
+    entityType: "api_key",
+    entityId: result[0].id as string | number,
+  });
 
   return NextResponse.json(
     {
       ...result[0],
       scope: normalizeComicScope(result[0].scope),
+      scopePersisted: hasScopeColumn,
       key: raw,
     },
     { status: 201 }

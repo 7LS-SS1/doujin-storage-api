@@ -11,6 +11,12 @@ import { z } from "zod";
 
 export const dynamic = 'force-dynamic';
 
+type ApiKeyRow = Record<string, unknown>;
+
+function asRows(rows: unknown): ApiKeyRow[] {
+  return rows as ApiKeyRow[];
+}
+
 const updateSchema = z.object({
   isActive: z.boolean().optional(),
   scope: z.enum(COMIC_SCOPES).optional(),
@@ -31,7 +37,7 @@ export async function PUT(
   }
 
   const hasScopeColumn = await apiKeysHaveScopeColumn();
-  const existing = hasScopeColumn
+  const rawExisting = hasScopeColumn
     ? await sql`
         SELECT id, name, key_prefix, is_active, scope
         FROM api_keys
@@ -44,6 +50,7 @@ export async function PUT(
         WHERE id = ${id}
         LIMIT 1
       `;
+  const existing = asRows(rawExisting);
 
   if (existing.length === 0) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -58,7 +65,7 @@ export async function PUT(
       ? parsed.data.scope
       : normalizeComicScope(existing[0].scope);
 
-  const result = hasScopeColumn
+  const rawResult = hasScopeColumn
     ? await sql`
         UPDATE api_keys
         SET is_active = ${isActive}, scope = ${scope}
@@ -71,12 +78,14 @@ export async function PUT(
         WHERE id = ${id}
         RETURNING id, name, key_prefix, is_active
       `;
+  const result = asRows(rawResult);
 
   await logAudit({ userEmail: session!.email, action: isActive ? "activate_api_key" : "revoke_api_key", entityType: "api_key", entityId: id });
 
   return NextResponse.json({
     ...result[0],
-    scope: normalizeComicScope(result[0].scope ?? scope),
+    scope: normalizeComicScope(result[0].scope),
+    scopePersisted: hasScopeColumn,
   });
 }
 

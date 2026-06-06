@@ -33,10 +33,12 @@ type ApiKey = {
   last_used_at?: string | null;
   created_at: string;
   scope: "all" | "manga" | "doujin";
+  scopePersisted?: boolean;
 };
 
 type ApiKeysResponse = {
   apiKeys: ApiKey[];
+  scopePersistenceAvailable?: boolean;
 };
 
 const fetcher = async (url: string): Promise<ApiKeysResponse> => {
@@ -56,6 +58,8 @@ function mergeUpdatedKey(
 
   return {
     ...current,
+    scopePersistenceAvailable:
+      current.scopePersistenceAvailable ?? updatedKey.scopePersisted ?? true,
     apiKeys: current.apiKeys.map((key) =>
       String(key.id) === String(updatedKey.id) ? { ...key, ...updatedKey } : key
     ),
@@ -83,10 +87,16 @@ export default function ApiKeysPage() {
     if (res.ok) {
       const { key, ...createdKey } = (await res.json()) as ApiKey & { key: string };
       setNewKey(key);
-      toast.success("API key created");
+      toast.success(
+        createdKey.scopePersisted === false
+          ? "API key created, but scope storage is not available until the database migration is applied"
+          : "API key created"
+      );
       await mutate(
         (current) => ({
           apiKeys: [createdKey, ...(current?.apiKeys ?? [])],
+          scopePersistenceAvailable:
+            current?.scopePersistenceAvailable ?? createdKey.scopePersisted ?? true,
         }),
         { revalidate: false }
       );
@@ -110,7 +120,11 @@ export default function ApiKeysPage() {
       await mutate((current) => mergeUpdatedKey(current, updatedKey), {
         revalidate: false,
       });
-      toast.success(successMessage);
+      if (payload.scope && updatedKey.scopePersisted === false) {
+        toast.error("Scope was not saved. Apply the api_keys.scope migration, then try again.");
+      } else {
+        toast.success(successMessage);
+      }
     } else {
       toast.error("Failed to update key");
     }
@@ -149,6 +163,7 @@ export default function ApiKeysPage() {
   }
 
   const apiKeys = data?.apiKeys ?? [];
+  const scopePersistenceAvailable = data?.scopePersistenceAvailable ?? true;
 
   return (
     <div className="flex flex-col gap-6">
@@ -161,6 +176,12 @@ export default function ApiKeysPage() {
           <Plus className="mr-2 h-4 w-4" />Add Key
         </Button>
       </div>
+
+      {!scopePersistenceAvailable ? (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+          API key scope is not being persisted in this deployment. Run the `api_keys.scope` migration, then reload this page.
+        </div>
+      ) : null}
 
       <div className="overflow-x-auto rounded-lg border border-border">
         <Table>
@@ -188,6 +209,7 @@ export default function ApiKeysPage() {
                   <TableCell className="min-w-[180px]">
                     <Select
                       value={k.scope}
+                      disabled={!scopePersistenceAvailable}
                       onValueChange={(value) =>
                         updateKey(k.id, { scope: value as ApiKey["scope"] }, "Key scope updated")
                       }
