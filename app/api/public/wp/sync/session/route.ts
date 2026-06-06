@@ -12,9 +12,23 @@ export const dynamic = "force-dynamic";
 
 const requestSchema = z.object({
   action: z.enum(SYNC_QUEUE_ACTIONS).default("acquire"),
-  leaseToken: z.string().min(1).max(128).optional(),
+  leaseToken: z.preprocess(
+    (value) => {
+      if (value === null || value === undefined) return undefined;
+      if (typeof value === "string" && value.trim() === "") return undefined;
+      return value;
+    },
+    z.string().trim().min(1).max(128).optional()
+  ),
   mode: z.enum(SYNC_QUEUE_MODES).default("incremental"),
-  siteUrl: z.string().trim().max(500).optional(),
+  siteUrl: z.preprocess(
+    (value) => {
+      if (value === null || value === undefined) return undefined;
+      if (typeof value === "string" && value.trim() === "") return undefined;
+      return value;
+    },
+    z.string().trim().max(500).optional()
+  ),
 });
 
 export async function POST(request: Request) {

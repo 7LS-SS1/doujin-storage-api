@@ -84,9 +84,9 @@ export const toolkitPackages: ToolkitPackage[] = [
     id: "companion",
     name: "Comic Reader Companion",
     shortLabel: "Companion Plugin สำหรับเชื่อม API และ Sync ข้อมูล",
-    packageVersion: "2.1.4",
-    sourceVersion: "2.1.4",
-    href: "/downloads/comic-reader-companion-2.1.4.zip",
+    packageVersion: "2.1.5",
+    sourceVersion: "2.1.5",
+    href: "/downloads/comic-reader-companion-2.1.5.zip",
     installOrder: "ติดตั้งและตั้งค่าหลังเปิดใช้ Theme",
     role: "เชื่อม Comic Storage API เข้ากับ WordPress, sync ข้อมูล และจัดการ routing/admin tools",
     description:
@@ -414,4 +414,4 @@ export const routePatterns = [
 ];
 
 export const versionNote =
-  "รีลีสนี้ใช้ Companion 2.1.4 ร่วมกับ Theme Library ที่มีทั้ง Manga-theme 1.0.0 และ Miku Doujin Theme 1.0.0 โดยรองรับ Content Scope สำหรับเว็บ Manga-only/Doujin-only เพิ่ม warning เมื่อ sync ได้ 0 รายการเพราะ scope ไม่ตรงกัน เพิ่มคิว sync กลางเพื่อจำกัดพร้อมกันสูงสุด 20 เว็บไซต์ เตือนเมื่อ Test Connection ใช้ค่าที่ยังไม่ได้บันทึก และแก้ปุ่ม Sync ที่เคย submit โดยไม่มี action ทำให้หน้า reload กลับมาเฉย ๆ";
+  "รีลีสนี้ใช้ Companion 2.1.5 ร่วมกับ Theme Library ที่มีทั้ง Manga-theme 1.0.0 และ Miku Doujin Theme 1.0.0 โดยรองรับ Content Scope สำหรับเว็บ Manga-only/Doujin-only เพิ่ม warning เมื่อ sync ได้ 0 รายการเพราะ scope ไม่ตรงกัน เพิ่มคิว sync กลางเพื่อจำกัดพร้อมกันสูงสุด 20 เว็บไซต์ เตือนเมื่อ Test Connection ใช้ค่าที่ยังไม่ได้บันทึก แก้ปุ่ม Sync ที่เคย submit โดยไม่มี action ทำให้หน้า reload กลับมาเฉย ๆ และแก้ payload ของ sync session ที่เคยส่ง `leaseToken: null` จน API ตอบ `Invalid sync session payload.`";

@@ -51,7 +51,7 @@
     <rect x="1066" y="628" width="414" height="190" rx="26" fill="#151A1A" stroke="#25403B"/>
     <text x="1100" y="682" fill="#A7F3D0" font-family="Arial, sans-serif" font-size="24" font-weight="700">Download package</text>
     <text x="1100" y="722" fill="#FAFAFA" font-family="Arial, sans-serif" font-size="46" font-weight="700">manga-theme-1.0.0.zip</text>
-    <text x="1100" y="772" fill="#A1A1AA" font-family="Arial, sans-serif" font-size="22">Use with Comic Reader Companion 2.1.4</text>
+    <text x="1100" y="772" fill="#A1A1AA" font-family="Arial, sans-serif" font-size="22">Use with Comic Reader Companion 2.1.5</text>
     <rect x="1100" y="790" width="212" height="18" rx="9" fill="#14532D"/>
   </g>
   <defs>
