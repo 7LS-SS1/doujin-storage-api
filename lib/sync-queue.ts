@@ -65,6 +65,19 @@ function isUniqueViolation(error: unknown): error is { code: string } {
   );
 }
 
+function isSyncQueueSchemaMissing(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+
+  const code = "code" in error ? String((error as { code?: string }).code ?? "") : "";
+  const message =
+    "message" in error ? String((error as { message?: string }).message ?? "") : "";
+
+  if (code === "42P01") return true;
+  if (code === "42703" && message.includes("sync_queue_leases")) return true;
+
+  return message.includes('relation "sync_queue_leases" does not exist');
+}
+
 function normalizeSyncLeaseRow(row: Record<string, unknown>): SyncLeaseRow {
   return {
     id: row.id as number | string,
@@ -295,6 +308,23 @@ function buildQueuedStatus(
   };
 }
 
+function buildBypassStatus(
+  mode: SyncQueueMode,
+  leaseToken?: string | null
+): SyncQueueStatus {
+  return {
+    acquired: true,
+    activeCount: 0,
+    leaseToken: leaseToken?.trim() || randomUUID(),
+    maxConcurrent: MAX_ACTIVE_SYNC_SITES,
+    message:
+      "Sync queue storage is unavailable in this deployment. Proceeding without distributed queue.",
+    mode,
+    queuePosition: 0,
+    retryAfterSeconds: SYNC_QUEUE_RETRY_AFTER_SECONDS,
+  };
+}
+
 export async function acquireOrHeartbeatSyncLease(params: {
   clientId: number;
   clientName: string;
@@ -302,57 +332,64 @@ export async function acquireOrHeartbeatSyncLease(params: {
   leaseToken?: string | null;
   siteUrl?: string | null;
 }): Promise<SyncQueueStatus> {
-  await cleanupExpiredSyncLeases();
+  try {
+    await cleanupExpiredSyncLeases();
 
-  let lease =
-    params.leaseToken?.trim()
-      ? await getOpenLeaseByToken(params.clientId, params.leaseToken.trim())
-      : await getOpenLeaseByClientId(params.clientId);
+    let lease =
+      params.leaseToken?.trim()
+        ? await getOpenLeaseByToken(params.clientId, params.leaseToken.trim())
+        : await getOpenLeaseByClientId(params.clientId);
 
-  if (!lease) {
-    lease = await insertQueuedLease({
-      clientId: params.clientId,
-      clientName: params.clientName,
-      mode: params.mode,
-      siteUrl: params.siteUrl,
-    });
-  }
+    if (!lease) {
+      lease = await insertQueuedLease({
+        clientId: params.clientId,
+        clientName: params.clientName,
+        mode: params.mode,
+        siteUrl: params.siteUrl,
+      });
+    }
 
-  if (lease.status === "active") {
-    const refreshed =
+    if (lease.status === "active") {
+      const refreshed =
+        (await extendLease(
+          lease,
+          params.clientName,
+          params.mode,
+          "active",
+          params.siteUrl
+        )) ?? lease;
+      const activeCount = await getActiveLeaseCount();
+      return buildAcquiredStatus(refreshed, params.mode, activeCount);
+    }
+
+    const refreshedQueued =
       (await extendLease(
         lease,
         params.clientName,
         params.mode,
-        "active",
+        "queued",
         params.siteUrl
       )) ?? lease;
     const activeCount = await getActiveLeaseCount();
-    return buildAcquiredStatus(refreshed, params.mode, activeCount);
-  }
-
-  const refreshedQueued =
-    (await extendLease(
-      lease,
-      params.clientName,
+    const promoted = await tryPromoteQueuedLease(
+      refreshedQueued,
       params.mode,
-      "queued",
+      activeCount,
       params.siteUrl
-    )) ?? lease;
-  const activeCount = await getActiveLeaseCount();
-  const promoted = await tryPromoteQueuedLease(
-    refreshedQueued,
-    params.mode,
-    activeCount,
-    params.siteUrl
-  );
+    );
 
-  if (promoted) {
-    return buildAcquiredStatus(promoted, params.mode, activeCount + 1);
+    if (promoted) {
+      return buildAcquiredStatus(promoted, params.mode, activeCount + 1);
+    }
+
+    const queuePosition = await getQueuedPosition(refreshedQueued);
+    return buildQueuedStatus(refreshedQueued, params.mode, activeCount, queuePosition);
+  } catch (error) {
+    if (isSyncQueueSchemaMissing(error)) {
+      return buildBypassStatus(params.mode, params.leaseToken);
+    }
+    throw error;
   }
-
-  const queuePosition = await getQueuedPosition(refreshedQueued);
-  return buildQueuedStatus(refreshedQueued, params.mode, activeCount, queuePosition);
 }
 
 export async function releaseSyncLease(params: {
@@ -360,30 +397,37 @@ export async function releaseSyncLease(params: {
   leaseToken?: string | null;
   releaseReason?: string;
 }): Promise<{ released: boolean }> {
-  await cleanupExpiredSyncLeases();
+  try {
+    await cleanupExpiredSyncLeases();
 
-  const releaseReason = params.releaseReason?.trim() || "released";
-  const rows =
-    params.leaseToken?.trim()
-      ? await sql`
-          UPDATE sync_queue_leases
-          SET released_at = NOW(),
-              release_reason = ${releaseReason},
-              updated_at = NOW()
-          WHERE client_id = ${params.clientId}
-            AND lease_token = ${params.leaseToken.trim()}
-            AND released_at IS NULL
-          RETURNING id
-        `
-      : await sql`
-          UPDATE sync_queue_leases
-          SET released_at = NOW(),
-              release_reason = ${releaseReason},
-              updated_at = NOW()
-          WHERE client_id = ${params.clientId}
-            AND released_at IS NULL
-          RETURNING id
-        `;
+    const releaseReason = params.releaseReason?.trim() || "released";
+    const rows =
+      params.leaseToken?.trim()
+        ? await sql`
+            UPDATE sync_queue_leases
+            SET released_at = NOW(),
+                release_reason = ${releaseReason},
+                updated_at = NOW()
+            WHERE client_id = ${params.clientId}
+              AND lease_token = ${params.leaseToken.trim()}
+              AND released_at IS NULL
+            RETURNING id
+          `
+        : await sql`
+            UPDATE sync_queue_leases
+            SET released_at = NOW(),
+                release_reason = ${releaseReason},
+                updated_at = NOW()
+            WHERE client_id = ${params.clientId}
+              AND released_at IS NULL
+            RETURNING id
+          `;
 
-  return { released: asRows(rows).length > 0 };
+    return { released: asRows(rows).length > 0 };
+  } catch (error) {
+    if (isSyncQueueSchemaMissing(error)) {
+      return { released: true };
+    }
+    throw error;
+  }
 }
